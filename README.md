@@ -130,9 +130,9 @@ Higher modules may extend lower modules — never the other way around.
 
 ---
 
-## Interop (DOM + AJAX)
+## Interop (DOM + NET modules)
 
-DOM and AJAX follow the jQuery silhouette with modern internals.
+DOM and NET (AJAX) follow the jQuery silhouette with modern internals. (i.e. $.ajax() just works)
 
 No dependency. No globals.
 
