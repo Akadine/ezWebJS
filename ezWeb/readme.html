@@ -1,0 +1,1219 @@
+
+<!--ezWeb readme.html version: 0.0.4 -->
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>ezWeb Readme</title>
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<!-- Keep styling minimal; you can swap these for your normalize/media if you want -->
+		<style>
+			:root{
+				--bg:#0c0f14;
+				--panel:#121825;
+				--text:#e9eefb;
+				--muted:#b6c3e6;
+				--line:#22304a;
+				--accent:#7aa2ff;
+				--code:#0b1220;
+			}
+			html,body{ height:100%; }
+			body{
+				margin:0;
+				background:var(--bg);
+				color:var(--text);
+				font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+				line-height:1.35;
+			}
+			a{ color:var(--accent); text-decoration:none; }
+			a:hover{ text-decoration:underline; }
+
+			.wrap{
+				max-width: 980px;
+				margin: 0 auto;
+				padding: 18px 14px 48px 14px;
+			}
+
+			.header{
+				display:flex;
+				align-items:flex-end;
+				justify-content:space-between;
+				gap:16px;
+				padding: 10px 0 14px 0;
+				border-bottom: 1px solid var(--line);
+				margin-bottom: 14px;
+			}
+			.hTitle{
+				font-size: 28px;
+				font-weight: 800;
+				letter-spacing: .2px;
+			}
+			.hSub{
+				margin-top: 6px;
+				color:var(--muted);
+				font-size: 14px;
+			}
+
+			.grid{
+				display:grid;
+				grid-template-columns: 260px 1fr;
+				gap: 14px;
+				margin-top: 14px;
+			}
+
+			.card{
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				padding: 12px;
+				box-shadow: 0 8px 18px rgba(0,0,0,.22);
+			}
+
+			.navTitle{
+				font-weight: 800;
+				margin-bottom: 10px;
+				font-size: 13px;
+				text-transform: uppercase;
+				letter-spacing: .12em;
+				color: var(--muted);
+			}
+
+			.navItem{
+				display:block;
+				padding: 8px 8px;
+				border-radius: 10px;
+				border: 1px solid transparent;
+			}
+			.navItem:hover{
+				background: rgba(122,162,255,.08);
+				border-color: rgba(122,162,255,.24);
+				text-decoration:none;
+			}
+			.navItem small{
+				display:block;
+				color: var(--muted);
+				font-size: 12px;
+				margin-top: 2px;
+			}
+
+			.section{
+				margin-bottom: 14px;
+			}
+			.section h2{
+				margin: 0 0 8px 0;
+				font-size: 18px;
+			}
+			.section p{
+				margin: 8px 0;
+				color: var(--text);
+			}
+			.section .muted{
+				color: var(--muted);
+			}
+
+			hr{
+				border:none;
+				border-top:1px solid var(--line);
+				margin: 14px 0;
+			}
+
+			pre{
+				margin: 10px 0 0 0;
+				padding: 12px;
+				border-radius: 12px;
+				background: var(--code);
+				border: 1px solid rgba(122,162,255,.22);
+				overflow:auto;
+				white-space: pre; /* keep tabs */
+				tab-size: 4;
+			}
+			code{
+				font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+				font-size: 13px;
+				color: #d6e0ff;
+			}
+
+			.kbd{
+				display:inline-block;
+				padding: 1px 6px;
+				border-radius: 6px;
+				border: 1px solid var(--line);
+				background: rgba(255,255,255,.04);
+				color: var(--muted);
+				font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+				font-size: 12px;
+			}
+
+			@media (max-width: 840px){
+				.grid{ grid-template-columns: 1fr; }
+			}
+		</style>
+
+		<!-- ezWeb loader -->
+		<script src="scripts/ezWeb.js"></script>
+	</head>
+
+	<body>
+		<div id="app"></div>
+
+		<script>
+			"use strict";
+
+			/******************************************************************
+			 * readme.html
+			 * - One-page "readme app" built with dom + bind.
+			 * - Uses tree/spec creation + ezFor for nav.
+			 ******************************************************************/
+
+			const options = {
+				appPrefix: "ezWebReadme",
+				logTimestamps: false,
+				verbosity: 2, // WARN+ (quiet by default)
+				dom:  { debug: false },
+				bind: { debug: false }
+			};
+
+			// Data model drives ezFor + code snippet (as TEXT, not executed)
+			const data = {
+				nav: [
+				{ id: "intro",  title: "Introduction",  desc: "What ezWeb is (and isn’t)" },
+				{ id: "quick",  title: "Quick Start",   desc: "Loader contract + Hello World" },
+				{ id: "ladder", title: "Totem Pole",    desc: "Module ladder + start() arguments" },
+				{ id: "phil",    title: "Philosophy",   desc: "Why ezWeb exists" },
+				{ id: "secure",  title: "Security",     desc: "No magic. No global leaks." },
+				{ id: "contract",title: "Module Contract", desc: "start(system), system bag, extension model" },
+				{ id: "interop", title: "Interop", desc: "base primitives + jQuery-style DOM/AJAX" },
+				{ id: "binding", title: "Binding", desc: "ezBind, ezEvents, templates, auto-compilation" },
+				{ id: "logger", title: "Logging", desc: "Scoped logging, levels, and fatal errors" }
+			],
+
+				// Bound into <pre> as textContent => safe + won’t execute
+				codeQuickStart:
+`<!-- 1) HTML mount -->
+<div id="app"></div>
+
+<!-- 2) Load ezWeb loader (modules are loaded by ezWeb) -->
+<script src="scripts/ezWeb.js"></scr` + `ipt>
+
+<script>
+\t"use strict";
+
+\tconst options = {
+\t\tappPrefix: "MyApp",
+\t\tverbosity: 3 // DEBUG
+\t};
+
+\tconst data = {};
+
+\t// ezWeb returns ONLY a pid (string) for security.
+\t// system is provided ONLY inside the mount callback.
+\tezWeb("app", "dom", data, options, function(system){
+\t\tconst $ = system.dom;           // jQuery-style wrapper
+
+\t\t// Hello World, wrap mount element and append
+\t\t$(system.appEl).append({ tag:"div", text:"Hello World from ezWeb" });
+
+\t\t// Or: raw create + append
+\t\t// const el = $.create("div", { text:"Hello World (raw)" });
+\t\t// $.addChild(system.appEl,el); // addChild(parent,child,atIndex)
+\t});
+</scr` + `ipt>`,
+				codeTotemPole:
+`// Totem pole module ladder (lowest -> highest):
+// dom -> net -> bind -> ui -> uix
+//
+// You pick the TOP module you want.
+// ezWeb loads that module AND everything under it.
+//
+// Example:
+// ezWeb("app", "dom",  ...)  => loads: dom
+// ezWeb("app", "net",  ...)  => loads: dom, net
+// ezWeb("app", "bind", ...)  => loads: dom, net, bind
+// ezWeb("app", "ui",   ...)  => loads: dom, net, bind, ui
+// ezWeb("app", "uix",  ...)  => loads: dom, net, bind, ui, uix
+
+// ezWeb start() arguments (overloaded):
+// ezWeb(appElementId, topModule, appData?, appOptions?, appInit?)
+
+// Valid call shapes:
+ezWeb("app", "dom", function(system){ /* init */ });
+
+ezWeb("app", "dom", data, function(system){ /* init */ });
+
+ezWeb("app", "dom", data, options, function(system){ /* init */ });
+
+// Return value:
+// - ezWeb returns ONLY a pid string (not the system bag).`,
+				codePhilosophy:
+`// ezWeb philosophy (non-negotiables)
+//
+// 1) Transparency > convenience
+//    - if it’s hard to explain, it’s too clever
+//
+// 2) Debuggability > magic
+//    - predictable load order
+//    - explicit module boundaries
+//    - readable state, readable logs
+//
+// 3) Security first
+//    - no global pollution
+//    - no silent eval tricks
+//    - ezWeb returns only a pid, not the live system bag
+//
+// 4) Source is the documentation
+//    - you should be able to read the modules and understand them`,
+
+				codeSecurity:
+`// Security model (high-level)
+//
+// - One mount, one system bag, scoped to that app element
+// - No global "framework state" required to build apps
+// - Loader owns lifecycle and start order (totem pole)
+// - Modules attach APIs to system, but system is only provided to init()
+// - ezWeb returns ONLY a pid string, discouraging handle leaks
+//
+// Practical outcome:
+// - less accidental cross-app coupling
+// - fewer "who mutated what" debugging sessions
+// - easier to audit and lock down in real environments`,
+
+				codeContract:
+`// Module contract (what the loader expects)
+//
+// A module file registers a start(system) function.
+// Loader calls start(system) exactly once per app mount.
+//
+// start(system) responsibilities:
+// - read system.options.<modName> (already merged defaults + app overrides)
+// - attach its public API onto system.<modName>
+// - optionally extend LOWER modules (e.g. bind extends dom)
+//
+// Pattern:
+// (function(){
+// \t"use strict";
+// \tconst modName = "dom";
+// \tfunction defaults(){ return { debug:false }; }
+// \tfunction start(system){
+// \t\tconst api = function dom(input){ /* ... */ };
+// \t\tapi.fn = api.fn || {}; // extension surface
+// \t\tsystem.dom = api;       // publish to system bag
+// \t}
+// \tstart.defaults = defaults;
+// \twindow.__ezWebMods[modName] = start;
+// })();`,
+				codeInterop:
+`// Base primitives
+// - system.base is the shared primitive layer owned by the loader.
+// - It holds core utilities used by ALL modules (locking, assets, helpers).
+// - App code rarely touches base directly.
+
+// DOM interop (jQuery-style drop-in)
+ezWeb("app", "dom", data, options, function(system){
+\tconst $ = system.dom;      // $() wrapper constructor
+\t$(system.appEl).append("<div>Hello</div>");
+});
+
+// NET interop (AJAX drop-in)
+ezWeb("app", "net", data, options, function(system){
+\tconst $ = system.dom;
+
+\t// Paste legacy jQuery-style code:
+\t$.ajax({
+\t\turl: "/api/ping",
+\t\tmethod: "GET",
+\t\tsuccess: function(res){
+\t\t\tsystem.log.info("ok");
+\t\t},
+\t\terror: function(err){
+\t\t\tsystem.log.warn("fail", err);
+\t\t}
+\t});
+});
+//
+// No jQuery dependency.
+// Same shape, new internals.
+// Aliasing is handled by the net module automatically.`,
+				codeBinding:
+`// Binding overview
+//
+// - ezBind      : data -> DOM binding
+// - ez{Event}   : event wiring (ezClick, ezChange, etc.)
+// - Backticks   : template expressions inside attributes/text
+// - ezFor       : template repetition
+// - Dropdowns   : object-based binding (items + SelectedIndex)
+//
+// Key rule:
+// You do NOT manually compile.
+// Compilation happens automatically when nodes are added.
+
+// Example:
+ezWeb("app", "bind", data, options, function(system){
+\tconst $ = system.dom;
+\tconst data = system.data; // reactive/proxied model (authoritative, data sent in is copied over)
+
+\tdata.count = 0;
+\tdata.color = "red";
+
+\t//you can mutate the options list reactively. see ezFor below.
+\tdata.dropdown = {
+\t\toptions: [ 
+\t\t\t["One",true],
+\t\t\t["Two",true],
+\t\t\t["-----",false], //false is inactive, a seperator or a category header
+\t\t\t["Three",true]
+\t\t],
+\t\tSelectedValue: "One"
+\t};
+
+\t// Create elements with ez* attributes
+\tconst app = (system.appEl);
+\tapp.append({
+\t\ttag: "div",
+\t\tchildren: [
+\t\t\t{ tag:"div", ezBind:"count", style:"color:\`\`color\`\`;" },
+\t\t\t{
+\t\t\t\ttag:"button",
+\t\t\t\tezClick:"increment(system); anotherFN(system);",
+\t\t\ttext:"Increment"
+\t\t\t},
+\t\t\t{
+\t\t\t\ttag:"select",
+\t\t\t\tezBind:"dropdown"
+\t\t\t}
+\t\t]
+\t});
+
+\t// Handlers
+\tdata.increment = function(system){
+\t\tsystem.data.count++;
+\t};
+\tdata.anotherFN = function(system){
+\t\t//just showing adding two handlers
+\t};
+
+\t// ezFor
+\tdata.people = [
+\t\t{ name: "Luke", role: "Jedi" },
+\t\t{ name: "Picard", role: "Captain" }
+\t];
+
+\tapp.append("div", {
+\t\tezFor: "people",
+\t\tstyle: "padding:6px;border:1px solid #444;margin:4px;display:none;",
+\t\tchildren: [
+\t\t\t{ tag: "div", text: "Name:" },
+\t\t\t{ tag: "div", ezBind: "name" },   // becomes people[0].name, people[1].name
+\t\t\t{ tag: "div", text: "Role:" },
+\t\t\t{ tag: "div", ezBind: "role" }
+\t\t]
+\t});
+
+\t//test reactively mutating ezFor
+\tdata.updateFor = function(system) {
+\t\tconst data = system.data; // proxied array
+\t\tdata.people[0] = { name:"Vader", role:"Sith Lord" };
+\t\tdata.people[1].name = "Janeway";
+\t\t//data.people.splice(1,1);
+\t\tdata.people.push({ name:"Nelix", role:"Ambassador" });
+\t\t//data.people.pop();
+	
+\t}
+\tdata.updateFor(system);
+});
+//
+// No explicit compile call.
+// bind installs a hook into dom so new nodes are compiled automatically.`,
+				codeLogger:
+`// Logger usage
+//
+// system.log is created by the loader.
+// It is scoped to the app and uses appPrefix automatically.
+
+ezWeb("app", "dom", data, options, function(system){
+\t// Create a scoped logger
+\tconst log = system.log.scope("init");
+
+\tlog.info("Application started");
+
+\t// Scoped logs can be passed around
+\tfunction doWork(l){
+\t\tconst myLog = l.scope("doWork");
+\t\tmyLog.info("Doing work");
+\t}
+
+\t// Error logging (always printed)
+\tlog.error("Something went wrong", { code: 500 });
+
+\t// Fatal logging (always printed, then throws)
+\ttry {
+\t\tlog.debug("Entering function");
+\t\tdoWork(log);
+\t}
+\tcatch(err) {
+\t\tlog.fatal("Unrecoverable error",err);
+\t}
+});
+//
+// Levels:
+// NONE, INFO, DEBUG, ERROR, FATAL
+//
+// Errors and fatals always log.
+// Fatal throws after logging.`
+			};
+
+			// Build the readme UI
+			ezWeb("app", "bind", data, options, function(system){
+				const $ = system.dom;
+				const app = $(system.appEl);
+
+				// Root
+				app.append({
+					tag: "div",
+					class: "wrap",
+					children: [
+						{
+							tag: "div",
+							class: "header",
+							children: [
+								{
+									tag: "div",
+									children: [
+										{ tag: "div", class: "hTitle", text: "ezWeb Readme, built with ezWeb" },
+										{
+											tag: "div",
+											class: "hSub",
+											text:
+												"A loader + composable primitives. Transparent contracts. Security-first by default."
+										}
+									]
+								},
+								{
+									tag: "div",
+									class: "hSub",
+									text: "One page. No magic. Read the source."
+								}
+							]
+						},
+
+						{
+							tag: "div",
+							class: "grid",
+							children: [
+								/******************************************************************
+								 * Left nav (ezFor)
+								 ******************************************************************/
+								{
+									tag: "div",
+									class: "card",
+									children: [
+										{ tag:"div", class:"navTitle", text:"Contents" },
+
+										// Template is hidden; bind will clone + render items.
+										{
+											tag: "a",
+											ezFor: "nav",
+											href: "#``id``",
+											class: "navItem",
+											style: "display:none;",
+											children: [
+												{ tag:"div", ezBind:"title" },
+												{ tag:"small", ezBind:"desc" }
+											]
+										},
+
+										{ tag:"hr" },
+
+										{
+											tag:"div",
+											class:"muted",
+											children:[
+												{ tag:"div", text:"Tip:" },
+												{
+													tag:"div",
+													text:"Use the nav links, or press "
+												},
+												{ tag:"span", class:"kbd", text:"Ctrl+F" },
+												{ tag:"span", text:" to search." }
+											]
+										}
+									]
+								},
+
+								/******************************************************************
+								 * Right content
+								 ******************************************************************/
+								{
+									tag: "div",
+									class: "card",
+									children: [
+										/**************** Introduction ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "intro",
+											children: [
+												{ tag:"h2", text:"Introduction" },
+
+												{
+													tag:"p",
+													text:
+														"ezWeb is a small framework built around hard contracts: a loader that owns scope + security, and a set of composable modules (dom/net/bind/ui/uix)."
+												},
+												{
+													tag:"p",
+													text:
+														"It exists because \"existing libraries work… until they don’t.\" When behavior is hidden, state is implicit, and debugging depends on magic, you eventually pay for it."
+												},
+												{
+													tag:"p",
+													text:
+														"ezWeb prioritizes:"
+												},
+												{
+													tag:"ul",
+													class:"muted",
+													children:[
+														{ tag:"li", text:"Transparency over convenience" },
+														{ tag:"li", text:"Debuggability over cleverness" },
+														{ tag:"li", text:"Security as a first-class concern" }
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"What ezWeb is not:"
+												},
+												{
+													tag:"ul",
+													class:"muted",
+													children:[
+														{ tag:"li", text:"Not React" },
+														{ tag:"li", text:"Not Angular" },
+														{ tag:"li", text:"Not a \"framework replacement\"" }
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"What ezWeb is:"
+												},
+												{
+													tag:"ul",
+													class:"muted",
+													children:[
+														{ tag:"li", text:"A loader + explicit module lifecycle" },
+														{ tag:"li", text:"A system bag you can inspect" },
+														{ tag:"li", text:"A codebase you can understand by reading it" }
+													]
+												}
+											]
+										},
+
+										{ tag:"hr" },
+
+										/**************** Quick Start ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "quick",
+											children: [
+												{ tag:"h2", text:"Quick Start" },
+
+												{
+													tag:"p",
+													text:
+														"The loader is the engine. Modules don’t run until the loader mounts your app. The mount callback is the only place you get the live system bag."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Security posture (high level): the loader avoids global pollution, the module ladder is explicit, and ezWeb returns only a pid (string) instead of giving you a system handle you can leak."
+												},
+
+												{
+													tag:"p",
+													text:"Copy/paste this minimal app:"
+												},
+
+												// Bound code block (safe)
+												{
+													tag:"pre",
+													children:[
+														{ tag:"code", ezBind:"codeQuickStart" }
+													]
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Notes: the snippet uses the dom wrapper as $, and appends a Hello World div into #app. Since the snippet is bound into a code element as text, it will not execute."
+												}
+											]
+										},
+										
+										{ tag:"hr" },
+
+										/**************** Totem Pole Ladder ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "ladder",
+											children: [
+												{ tag:"h2", text:"Totem Pole Ladder" },
+
+												{
+													tag:"p",
+													text:
+														"ezWeb uses a hardcoded module ladder (a dependency totem pole). You don’t import modules manually; you pick the highest module you want, and the loader starts everything below it in order."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Why: it keeps the runtime honest. No circular dependency surprises, no hidden load order, no “magic auto-injection.” The loader owns the lifecycle."
+												},
+
+												{
+													tag:"p",
+													text:
+														"The ladder (lowest → highest):"
+												},
+
+												{
+													tag:"ul",
+													class:"muted",
+													children: [
+														{ tag:"li", text:"dom  — DOM wrapper + element spec/tree creation" },
+														{ tag:"li", text:"net  — network / ajax primitives" },
+														{ tag:"li", text:"bind — data binding + compilation (ezBind / ezFor / etc.)" },
+														{ tag:"li", text:"ui   — UI behaviors (drag/resize/etc.)" },
+														{ tag:"li", text:"uix  — higher-level UI extensions (optional)" }
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"Start arguments:"
+												},
+
+												// Safe code block
+												{
+													tag:"pre",
+													children:[
+														{ tag:"code", ezBind:"codeTotemPole" }
+													]
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Key rule: your init function receives the system bag, but ezWeb does not return it. The loader returns only a pid string, which discourages leaking internal handles outside the mount lifecycle."
+												},
+												
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Notes: Modules don’t depend upward. They expose capability slots. Higher modules install hooks into thes slots. If the hook exists, it runs — otherwise the system behaves normally."
+												},
+												
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Example: the dom module exposes an optional compile hook. If the bind module is not loaded, that hook is never installed and nothing special happens — dom behaves as a normal DOM wrapper/creator."
+												},
+												
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"If you load the bind module, it installs the compile hook into dom. From that point on, any elements created and inserted through the dom module are automatically compiled into the reactive binding system (ezBind, ezFor, backticks, ez* events, etc.)."
+												},
+												
+												/************ Segue into Philosophy ************/
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Segue: This is intentionally different from AngularJS-style workflows, where dynamically added markup typically required an explicit manual compile step (i.e., the developer had to remember to compile/link new nodes). When new to Angular, I thought it should just work, when I learned I had to do more it was frustrating."
+												}
+											]
+										},
+										
+										{ tag:"hr" },
+
+										/**************** Philosophy ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "phil",
+											children: [
+												{ tag:"h2", text:"Philosophy" },
+
+												{
+													tag:"p",
+													text:
+														"ezWeb exists because most libraries eventually become un-debuggable: hidden state, silent behavior, and “magic” features that you can’t reason about when things break. Not to mention extra added manual steps that I felt were just a result laziness on the framework developer side."
+												},
+												{
+													tag:"p",
+													text:
+														"The goal is not to be the fastest way to ship a demo. The goal is to ship code you can still understand six months later — by reading it."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Read the source is not a slogan here. It’s a design constraint."
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{ tag:"code", ezBind:"codePhilosophy" }
+													]
+												}
+											]
+										},
+										{ tag:"hr" },
+
+										/**************** Security ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "secure",
+											children: [
+												{ tag:"h2", text:"Security Model" },
+
+												{
+													tag:"p",
+													text:
+														"ezWeb is designed so an app can’t accidentally (or casually) turn into a global state machine. The loader owns scope and lifecycle, modules publish into the system bag, and your init callback is the only place you receive the live system."
+												},
+												{
+													tag:"p",
+													text:
+														"The most important decision: ezWeb returns only a pid string, not the system bag. That makes it harder to leak internal handles into global code or random modules."
+												},
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"This is “security through structure,” not security through obscurity."
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{ tag:"code", ezBind:"codeSecurity" }
+													]
+												}
+											]
+										},
+										{ tag:"hr" },
+
+										/**************** Module Contract ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "contract",
+											children: [
+												{ tag:"h2", text:"Module API Contract" },
+
+												{
+													tag:"p",
+													text:
+														"Every ezWeb module has one job: expose a public API by attaching it onto the system bag."
+												},
+
+												{
+													tag:"ul",
+													class:"muted",
+													children: [
+														{ tag:"li", text:"The loader calls start(system) exactly once per app mount." },
+														{ tag:"li", text:"Modules publish onto system; the loader is the only conductor." },
+														{ tag:"li", text:"Modules may extend LOWER modules, but should never require upward dependencies." }
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"Extension model (important): higher modules can extend lower ones without breaking the ladder. Example: bind can extend dom to add compilation hooks, but dom does not know bind exists."
+												},
+
+												{
+													tag:"p",
+													text:
+														"jQuery-style drop-in: dom intentionally exposes an extension surface so old patterns can be layered on top."
+												},
+
+												{
+													tag:"ul",
+													class:"muted",
+													children: [
+														{ tag:"li", text:"system.dom is callable like $(...) (wrapper constructor)." },
+														{ tag:"li", text:"system.dom.fn is the prototype surface (like $.fn in jQuery)." },
+														{ tag:"li", text:"Higher modules can defineLocked new methods onto dom.fn safely." }
+													]
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{ tag:"code", ezBind:"codeContract" }
+													]
+												},
+
+												/************ Segue into system bag anatomy ************/
+												{
+													tag:"p",
+													text:
+														"Segue: once you understand that modules only publish onto system, the system bag becomes your map. If you can inspect system, you can reason about everything."
+												},
+												{
+													tag:"ul",
+													class:"muted",
+													children: [
+														{ tag:"li", text:"system.appEl — the mount element (scoping root)" },
+														{ tag:"li", text:"system.options — merged options (global + module-scoped)" },
+														{ tag:"li", text:"system.log — first-class logging API" },
+														{ tag:"li", text:"system.dom/net/bind/ui/uix — module APIs (depending on top module)" }
+													]
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"This is why you can debug ezWeb by reading the system bag instead of guessing what the framework did behind your back."
+												}
+											]
+										},
+										{ tag:"hr" },
+
+										/**************** Interop ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "interop",
+											children: [
+												{ tag:"h2", text:"Base Primitives, DOM, and AJAX Interop" },
+
+												{
+													tag:"p",
+													text:
+														"The loader owns a base primitives layer used internally by all modules. It exists so core behaviors — locking, asset loading, and shared helpers — live in one place and stay consistent."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Most applications never touch base directly. It’s infrastructure, not an API surface."
+												},
+
+												{
+													tag:"p",
+													text:
+														"With the dom module loaded, you can assign `$ = system.dom` and write code that looks and feels like jQuery DOM usage immediately."
+												},
+
+												{
+													tag:"p",
+													text:
+														"When the net module is loaded, AJAX interop is automatic. If legacy code calls `$.ajax(...)`, it just works — no manual aliasing, no glue code."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"This is intentional: ezWeb preserves the jQuery API silhouette while replacing the internals with modern, explicit, auditable code."
+												},
+												
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Modern update: not only can you use the jQuery-style $(\"tagName\", {attr:\"value\"}); object to create an element, you can do a shortened version with the tagName in the object: $({tag:\"tagName\", attr:\"value\"}); but the kicker is that you can use a raw string like React!"  
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{ tag:"code", ezBind:"codeInterop" }
+													]
+												}
+											]
+										},
+										{ tag:"hr" },
+
+										/**************** Binding ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "binding",
+											children: [
+												{ tag:"h2", text:"Binding" },
+
+												{
+													tag:"p",
+													text:
+														"The bind module adds declarative data binding and event wiring to ezWeb. There is no separate compile step, no lifecycle calls, and no virtual DOM."
+												},
+
+												{
+													tag:"p",
+													text:
+														"Binding works by annotating elements with ez* attributes. Backtick templates are supported in most attributes (style/class/src/etc). For text, use ezBind."
+												},
+												
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Handler resolution: ez events resolve from data (the reactive model). Use namespaces if you want: ezClick=\"handlers.increment\" will call data.handlers.increment."
+												},
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Recommended: inside the appInit and handlers, read/write system.data (the proxied reactive object)."
+												},
+
+												{
+													tag:"ul",
+													class:"muted",
+													children: [
+														{ tag:"li", text:"ezBind=\"key\" — binds element properties from reactive data (use this for text)" },
+														{ tag:"li", text:"Backticks: attribute templates only (style/class/src/href/etc). Example: style=\"color:``color``;\"" },
+														{ tag:"li", text:"ezClick / ezChange / ezKeyDown / ezKeyUp / ezFocus — event wiring (handler resolves from data)" },
+														{ tag:"li", text:"ezFor=\"array\" — template repetition" },
+														{ tag:"li", text:"Dropdown binding: object shape with options + SelectedValue (framework renders + tracks selection)" }
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"Dropdowns use object binding. A bound object with an options array and SelectedValue drives the control, and updates propagate automatically."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Example dropdown binding shape:"
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{
+															tag:"code",
+															text:
+`data.dropdown = {
+\toptions: [
+\t\t["One", true],
+\t\t["---", false], // seperator, category header
+\t\t["Two", true]
+\t],
+\tSelectedValue: "One"
+};`
+														}
+													]
+												},
+												
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Event attributes accept multiple handler calls separated by semicolons. Each handler is resolved from data and invoked in order."
+												},
+												
+												{
+													tag:"pre",
+													children: [
+														{
+															tag:"code",
+															text:
+`{
+	tag:"button",
+	ezClick:"increment(system); logChange(system)",
+	text:"Increment"
+}
+
+data.increment = function(system){
+	system.data.count++;
+};
+
+data.logChange = function(system){
+	const log = system.log.scope("Counter");
+	log.info("count changed");
+};`
+														}
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"The most important detail: you never call compile yourself. All DOM insertion must go through dom.addChild(parent, child, index) or the $() helpers (append / prepend / before / after), which automatically compile added elements."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"The bind module installs a small hook into dom. When you add nodes using the above methods, bind automatically compiles those nodes if they contain ez* attributes."
+												},
+
+												{
+													tag:"p",
+													text:
+														"This keeps the mental model simple: load bind, add elements, use ez attributes. The rest is handled for you."
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{ tag:"code", ezBind:"codeBinding" }
+													]
+												}
+											]
+										},
+										{ tag:"hr" },
+
+										/**************** Logger ****************/
+										{
+											tag: "div",
+											class: "section",
+											id: "logger",
+											children: [
+												{ tag:"h2", text:"Logging" },
+
+												{
+													tag:"p",
+													text:
+														"ezWeb provides a first-class logger via system.log. The logger is created by the loader and automatically scoped to the app using the appPrefix option."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Recommended usage (scoped):"
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{
+															tag:"code",
+															text:
+`const log = system.log.scope("myScope");
+log.info("logged");`
+														}
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"Logs can be scoped. Scoping is additive and intended to reflect call structure rather than ownership."
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{
+															tag:"code",
+															text:
+`const log = system.log;
+system.data.myFN = function(l) {
+	const myScopedLog = l.scope("myFN");
+
+	myScopedLog.debug("inside function");
+}
+
+system.data.myFN(log);`
+														}
+													]
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"This is used internally: scoped loggers are passed into helper functions so log output reflects the call stack without relying on globals or stack traces."
+												},
+
+												{
+													tag:"p",
+													text:
+														"Log levels:"
+												},
+
+												{
+													tag:"ul",
+													class:"muted",
+													children: [
+														{ tag:"li", text:"NONE  — suppress all non-critical logs" },
+														{ tag:"li", text:"INFO  — normal operational logging" },
+														{ tag:"li", text:"DEBUG — verbose diagnostics" },
+														{ tag:"li", text:"ERROR — always logged" },
+														{ tag:"li", text:"FATAL — always logged, then throws" }
+													]
+												},
+
+												{
+													tag:"p",
+													text:
+														"Verbosity is controlled via the app options. Levels 1–3 control INFO and DEBUG output. ERROR and FATAL are always logged regardless of verbosity."
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Each log call accepts a message and an optional object (or function) to be printed or executed alongside the message."
+												},
+
+												{
+													tag:"pre",
+													children: [
+														{ tag:"code", ezBind:"codeLogger" }
+													]
+												},
+
+												{
+													tag:"p",
+													class:"muted",
+													text:
+														"Fatal is intended to terminate execution. Catching it is only appropriate when you need to log additional context or perform controlled shutdown."
+												}
+											]
+										}
+										
+									]
+								}
+							]
+						}
+					]
+				});
+			});
+		</script>
+	</body>
+</html>

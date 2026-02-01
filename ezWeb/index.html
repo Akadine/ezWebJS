@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>ezWeb Testing</title>
+		<link rel="stylesheet" type="text/css" href="css/normalize.css">
+		<link rel="stylesheet" type="text/css" href="css/media.css">
+
+		<script src="scripts/ezWeb.js"></script>
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	</head>
+	<body>
+		<div id="app"></div>
+
+		<script>
+			/***************************************************************
+			 * Static switch:
+			 * - true  => build UI "query style" (wrapper) using $
+			 * - false => build UI "ezWeb style" (raw DOM ops, no wrapper)
+			 *
+			 * Change, save, reload to test both build modes.
+			 ***************************************************************/
+			const options = {
+				appPrefix: "DemoHtml",
+				logTimestamps: false,
+				verbosity: 3, // DEBUG
+				dom: {
+					debug: false
+				},
+				net: {
+					debug: false,
+					ajaxSettings: {
+						// defaults live here; leave empty for now
+						// timeout: 5000,
+						// headers: { "X-App": "ezWeb" }
+					}
+				},
+				bind: {
+					debug: false
+				}
+			};
+
+			const data = {};
+
+			ezWeb("app", "bind", data, options, function (system) {
+				const log = system.log;
+				const base = system.base;
+				const data = system.data;
+				const $ = system.dom;
+				const net = system.net;
+				const bind = system.bind;
+
+				const app = $(system.appEl);
+				
+				app.append("<div>Added HTML String</div>");
+				app.append("div",{text:"Added via spec obj"});
+				app.append({tag:"div",text:"Added via spec obj, tag included in spec"});
+
+				log.info("About to call ajax");
+
+				net.ajax({
+					url: "https://httpbin.org/anything",
+					responseType: "json"
+				})
+				.done(function (res) {
+					log.info("AJAX SUCCESS:", res);
+				})
+				.fail(function (err) {
+					log.error("AJAX FAIL:", err);
+				});
+
+				log.info("ajax() call returned");
+				
+				//test ezClick
+				data.inc = 0;
+				
+				app.append("input", {type: "text", ezBind: "inc"});
+				app.append("button", {type:"button", ezClick:"incFn(system);", text:"Increment"});
+				
+				data.incFn = function(system) {
+					const data = system.data;
+					data.inc++;
+				}
+				
+				data.tech = "Star Wars Tech Selected";
+				data.color = "red";
+				
+				// test back tick binding
+				app.append("div", { style: "color:``color``;", ezBind: "tech" }); // <--this works fine
+								
+				//test dropdown binding
+				// helper: first enabled option (so separators never become default)
+				data._firstEnabledValue = function (opts) {
+					if (!Array.isArray(opts)) return "";
+					for (let i = 0; i < opts.length; i++) {
+						const entry = opts[i];
+						if (Array.isArray(entry) && entry[1] === true) return String(entry[0]);
+					}
+					return "";
+				};
+				
+				// 1) define the two dropdown models (static templates)
+				data.swTechOptions = [
+					["blaster", true],
+					["----------", false],
+					["lightsaber", true],
+					["----------", false],
+					["xwing", true]
+				];
+
+				data.stTechOptions = [
+					["phaser", true],
+					["----------", false],
+					["batleth", true],
+					["----------", false],
+					["shuttlepod", true]
+				];
+
+				// 2) active bound dropdown object
+				data.techDrop = { options: [], selectedValue: "" };
+
+				// 3) radio handler
+				data.setFranchise = function(system, which) {
+					const data = system.data;					
+					const opts = (which === "st") ? data.stTechOptions : data.swTechOptions;
+					const tech = (which === "st") ? "Trek" : "Wars";
+					data.color = (which === "st") ? "blue" : "red";
+					data.techDrop.options = opts;
+					data.techDrop.selectedValue = data._firstEnabledValue(data.techDrop.options);					
+					data.tech = "Star" + tech + "Tech Selected";
+					if (which === "st")	{
+						//test add one option	
+						if (data.techDrop.options[5] === undefined) {
+							data.techDrop.options.push(["----------", false]);
+							data.techDrop.options.push(["teleporter", true]);
+						}
+						
+					}
+					if (which === "sw")	{
+						//test change one option
+						data.techDrop.options[4] = ["deathstar", true];
+					}
+				};
+				
+				// init (swap the internals, use the handler)
+				data.setFranchise(system, "sw");
+
+				// 4) radio UI
+				const radioWrap = app.append("div", {});
+
+				// Star Wars
+				radioWrap.append("label", { style: "margin-right:12px;" })
+					.append("span", { text: " Star Wars" })
+					.append("input", {
+						type: "radio",
+						name: "franchise",
+						checked: true,
+						ezChange: "setFranchise(system,'sw');"
+					});
+
+				// Star Trek
+				radioWrap.append("label", {})
+					.append("span", { text: " Star Trek" })
+					.append("input", {
+						type: "radio",
+						name: "franchise",
+						ezChange: "setFranchise(system,'st');"
+					});
+
+				// 5) dropdown bound to the OBJECT (options + selectedValue)
+				app.append("select", { ezBind: "techDrop" });
+
+				// 6) display bound directly to selectedValue (primitive bind)
+				app.append("div", { text: "Selected: " });				
+				app.append("div", { ezBind: "techDrop.selectedValue" });
+				
+				//test ezFor
+				data.people = [
+					{ name: "Luke", role: "Jedi" },
+					{ name: "Picard", role: "Captain" }
+				];
+
+				app.append("div", {
+					ezFor: "people",
+					style: "padding:6px;border:1px solid #444;margin:4px;display:none;",
+					children: [
+						{ tag: "div", text: "Name:" },
+						{ tag: "div", ezBind: "name" },   // becomes people[0].name, people[1].name
+						{ tag: "div", text: "Role:" },
+						{ tag: "div", ezBind: "role" }
+					]
+				});
+
+				//test mutating ezFor working 100%! (I added one at a time and tested, comment out splice and pop to see other results.)
+				data.updateFor = function(system) {
+					const data = system.data; // proxied array
+					data.people[0] = { name:"Vader", role:"Sith Lord" }; // should log people[0]
+					data.people[1].name = "Janeway";
+					data.people.splice(1,1);
+					data.people.push({ name:"Nelix", role:"Ambassador" });
+					data.people.pop();
+					
+				}
+				data.updateFor(system);
+				
+				
+			}).then(function (pid) {
+				// pid is the library process id for this element mount.
+				// For security, this is the only thing ezWeb returns.
+			});
+		</script>
+	</body>
+</html>
