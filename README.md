@@ -14,7 +14,7 @@ For a more detailed readme, download the project and double click readme.html
 - [Philosophy](#philosophy)
 - [Security Model](#security-model)
 - [Module API Contract](#module-api-contract)
-- [Interop (DOM + NET modules)](#interop-dom--net)
+- [Interop (DOM + NET modules)](#interop-dom--net-modules)
 - [Binding](#binding)
 - [Logging](#logging)
 
