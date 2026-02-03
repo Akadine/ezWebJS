@@ -31,7 +31,7 @@ const start = (function () {
 	/******************************************************************
 	 * bind start
 	 ******************************************************************/
-	function start(system) {
+	return function start(system) {
 		const base = system.base;
 		const dom = system.dom;
 		const defineLocked = system.base.defineLocked;
@@ -1392,9 +1392,5 @@ const start = (function () {
 
 	start.defaults = defaults();
 
-	// Register module start for loader
-	const w = window;
-	if (!w.__ezWebMods) w.__ezWebMods = Object.create(null);
-	w.__ezWebMods[modName] = start;
-
 })();
+export default start;

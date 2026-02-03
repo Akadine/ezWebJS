@@ -1,5 +1,5 @@
 
-/*  ezWeb.js  (BASE LOADER) version 0.0.9
+/*  ezWeb.js  (BASE LOADER) version 0.1.0
 	Old-school IIFE. This file evaluates to a callable ezWeb function object.
 
 	Framework modules (dom/net/bind/ui/uix):
@@ -90,11 +90,7 @@ const ezWeb = (function () {
 	/********************************************************************
 	 * Pin ezWeb.js folder once
 	 ********************************************************************/
-	const EZWEB_BASE_URL = (function () {
-		const cur = document.currentScript;
-		if (!cur || !cur.src) return "";
-		return cur.src.substring(0, cur.src.lastIndexOf("/") + 1);
-	})();
+	const EZWEB_BASE_URL = (function () { new URL(".",import.meta.url).href; })();
 
 	/********************************************************************
 	 * Locked property helper
@@ -705,25 +701,29 @@ const ezWeb = (function () {
 		 * @param {string} the base (optional, to override the default)
 		 ********************************************************************/
 		async function _loadMod(url, baseUrlOverride) {
-			const mLog = log.scope("loadMod"); 
-			
-			const LOADER_URL = new URL(import.meta.url);
-			const BASE_URL   = new URL(".", LOADER_URL);  // folder containing ezWeb.mjs
+			const mLog = log.scope("loadMod");
 
-			function modUrl(rel) {
-				return new URL(rel, BASE_URL).href;
-			}						
-			const abs = modUrl(url);
+			// Use your existing base.toAbsUrl() — but make sure baseOverride is correct
+			const abs = base.toAbsUrl(url, baseUrlOverride || EZWEB_BASE_URL);
 			if (!abs) {
 				const err = new Error("JS url was empty/invalid");
-				mLog.error("The JS url was empty/invalid", {error:err,url:url,abs:abs});
-				return false;
+				mLog.error("The JS url was empty/invalid", { error: err, url: url, abs: abs });
+				return null;
 			}
-			
+
 			const mod = await import(abs);
-			mLog.debug("JS " + abs + " Loaded");
-			return ok;
+			const startFn = mod && mod.default;
+
+			if (typeof startFn !== "function") {
+				const err = new Error("Module did not export default start()");
+				mLog.error("Bad module export: " + abs, err);
+				return null;
+			}
+
+			mLog.debug("ESM loaded: " + abs);
+			return startFn;
 		}
+
 
 		//create assets core
 		const assets = Object.create(null);
@@ -848,8 +848,8 @@ const ezWeb = (function () {
 
 			let startFn;
 			try {
-				await system.base.assets.loadMod(relUrl, EZWEB_BASE_URL);
-				startFn = (window.__ezWebMods && window.__ezWebMods[name]) ? window.__ezWebMods[name] : null;
+				startFn = await system.base.assets.loadMod(relUrl, EZWEB_BASE_URL);
+				if (typeof startFn !== "function") system.log.fatal("Module did not export start(system): " + name);
 
 				if (typeof startFn !== "function") {
 					system.log.fatal("Module did not register start(system): " + name);
@@ -1053,3 +1053,5 @@ const ezWeb = (function () {
 	return ezWeb;
 
 })();
+
+window.ezWeb = ezWeb;

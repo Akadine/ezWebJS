@@ -35,7 +35,7 @@ const start = (function () {
 	 * -Module entrypoint, attaches API to system bag
 	 * @param {object} the system bag
 	 ******************************************************************/
-	function start(system) {
+	return function start(system) {
 		//import base
 		const base = system.base;
 		
@@ -2802,3 +2802,5 @@ const start = (function () {
 	w.__ezWebMods[modName] = start;
 
 })();
+
+export default start;
