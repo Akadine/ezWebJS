@@ -712,66 +712,7 @@ const ezWeb = (function () {
 				jsLog.error("The JS url was empty/invalid", err)
 				return false;
 			}
-			// If we already have an in-flight/completed promise, use it.
-			if (jsPromise[abs]) return await jsPromise[abs];
-
-			jsPromise[abs] = new Promise((resolve, reject) => {
-
-				// Reuse existing script tag if it exists
-				const selector = 'script[src="' + abs.replace(/"/g, '\\"') + '"]';
-				const existing = document.querySelector(selector);
-
-				if (existing) {
-					// If we previously marked it as loaded, we are done.
-					if (existing.__ezLoaded === true || existing.dataset.ezLoaded === "1") {
-						resolve(true);
-						return;
-					}
-
-					// If it’s still loading, hook into its events.
-					function onLoad() {
-						existing.removeEventListener("load", onLoad);
-						existing.removeEventListener("error", onErr);
-						existing.__ezLoaded = true;
-						existing.dataset.ezLoaded = "1";
-						resolve(true);
-					}
-
-					function onErr() {
-						existing.removeEventListener("load", onLoad);
-						existing.removeEventListener("error", onErr);
-						reject(new Error("Script load failed: " + abs));
-					}
-
-					existing.addEventListener("load", onLoad);
-					existing.addEventListener("error", onErr);
-					
-					return;
-				}
-
-				// Otherwise inject a new script tag
-				const s = document.createElement("script");
-				s.src = abs;
-				s.async = true;
-
-				// Markers so future calls can instantly resolve
-				s.__ezLoaded = false;
-				s.dataset.ezLoaded = "0";
-
-				s.onload = function () {
-					s.__ezLoaded = true;
-					s.dataset.ezLoaded = "1";
-					resolve(true);
-				};
-
-				s.onerror = function () {
-					reject(new Error("Script load failed: " + abs));
-				};
-
-				document.head.appendChild(s);
-			});
-			
-			const ok = await jsPromise[abs];
+			const mod = await import(url);
 			jsLog.debug("JS " + url + " Loaded");
 			return ok;
 		}

@@ -11,7 +11,7 @@
  * - Optional: start.defaults for module-scoped options
  */
 
-(function () {
+const start = (function () {
 	"use strict";
 
 	const modName = "<name>";
