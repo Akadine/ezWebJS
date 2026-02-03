@@ -7,14 +7,16 @@
 		<link rel="stylesheet" type="text/css" href="css/normalize.css">
 		<link rel="stylesheet" type="text/css" href="css/media.css">
 
-		<script type="module" src="https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@main/ezWeb.js"></script>
-
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	</head>
 	<body>
 		<div id="app"></div>
 
 		<script>
+			"use strict";
+			
+			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.1/ezWeb.js";
+			
 			/***************************************************************
 			 * Static switch:
 			 * - true  => build UI "query style" (wrapper) using $

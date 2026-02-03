@@ -1262,49 +1262,168 @@ const start = (function () {
 
 			return ctx;
 		}
+		
+		/******************************************************************
+		 * bind @private _parsePathLoose
+		 * - Like _parsePath, but ALSO supports bracket identifiers:
+		 *   "path[to].my.fun" -> ["path","to","my","fun"]
+		 * - Keeps support for: a["weird-key"], a[0]
+		 ******************************************************************/
+		function _parsePathLoose(pathString) {
+			let s = String(pathString || "").trim();
+			if (!s) return [];
 
-		function _executeCodeString(codeString, context, meta, onErr) {
-			const evalLog = log.scope("executeCodeString");
-			const code = String(codeString || "").trim();
-			if (!code) return;
+			// allow legacy "system.data." prefix (strip it)
+			if (s.indexOf("system.data.") === 0) s = s.substring("system.data.".length);
 
-			const label = (meta && meta.sourceName) ? String(meta.sourceName) : "ezWeb.dynamic";
+			// allow accidental "()" or "();" from older patterns
+			s = s.replace(/\(\)\s*;?\s*$/, "");
 
-			const script = dom({
-				tag: "script",
-				text: `
-					window.__dynamicFunction = function(system, context) {
-						"use strict";
-						${code}
+			const out = [];
+			let i = 0;
+
+			function isIdentStart(ch) { return /[A-Za-z_$]/.test(ch); }
+			function isIdentChar(ch) { return /[A-Za-z0-9_$]/.test(ch); }
+
+			while (i < s.length) {
+				const ch = s[i];
+
+				if (ch === ".") { i++; continue; }
+
+				if (ch === "[") {
+					i++;
+					while (i < s.length && /\s/.test(s[i])) i++;
+
+					// quoted key: ["x"] or ['x']
+					if (s[i] === '"' || s[i] === "'") {
+						const q = s[i++];
+						let buf = "";
+						while (i < s.length && s[i] !== q) {
+							if (s[i] === "\\" && i + 1 < s.length) {
+								buf += s[i + 1];
+								i += 2;
+							} else {
+								buf += s[i++];
+							}
+						}
+						if (s[i] === q) i++;
+						while (i < s.length && /\s/.test(s[i])) i++;
+						if (s[i] === "]") i++;
+
+						out.push(buf);
+						continue;
 					}
-					//# sourceURL=${label}
-				`
-			});
 
-			dom(system.appEl).append(script);
+					// number: [123]
+					let num = "";
+					let j = i;
+					while (j < s.length && /[0-9]/.test(s[j])) { num += s[j]; j++; }
+
+					// bracket identifier: [to] / [someKey]
+					if (num === "" && isIdentStart(s[i])) {
+						let name = "";
+						while (i < s.length && isIdentChar(s[i])) name += s[i++];
+						while (i < s.length && /\s/.test(s[i])) i++;
+						if (s[i] === "]") i++;
+						if (name) out.push(name);
+						continue;
+					}
+
+					// finish number branch
+					i = j;
+					while (i < s.length && /\s/.test(s[i])) i++;
+					if (s[i] === "]") i++;
+
+					if (num !== "") out.push(parseInt(num, 10));
+					continue;
+				}
+
+				if (isIdentStart(ch)) {
+					let name = "";
+					while (i < s.length && isIdentChar(s[i])) name += s[i++];
+					if (name) out.push(name);
+					continue;
+				}
+
+				// skip unknown chars
+				i++;
+			}
+
+			return out;
+		}
+
+		/******************************************************************
+		 * bind @private _getAtPathSafe
+		 * - Same idea as _getAtPath, but blocks prototype-escape keys.
+		 ******************************************************************/
+		function _getAtPathSafe(root, pathArr) {
+			let cur = root;
+			for (let i = 0; i < pathArr.length; i++) {
+				if (cur == null) return undefined;
+
+				const k = pathArr[i];
+
+				// prevent prototype pollution / escape
+				if (k === "__proto__" || k === "prototype" || k === "constructor") return undefined;
+
+				cur = cur[k];
+			}
+			return cur;
+		}
+
+		/******************************************************************
+		 * bind @private _executeCodeString
+		 * - NO eval / NO script injection
+		 * - Resolves a function off system.data by path string and invokes it.
+		 * - Invokes with: (system, context, meta)
+		 * - Sets "this" to the parent object (so methods work naturally).
+		 ******************************************************************/
+		function _executeCodeString(codeString, context, meta, onErr) {
+			const execLog = log.scope("executeCodeString");
+
+			const raw = String(codeString || "").trim();
+			if (!raw) return;
+
+			const pathArr = _parsePathLoose(raw);
+			if (!pathArr || pathArr.length === 0) return;
+
+			// resolve parent + function
+			const fnKey = pathArr[pathArr.length - 1];
+			const parentPath = pathArr.slice(0, -1);
+
+			const parent = (parentPath.length === 0) ? system.data : _getAtPathSafe(system.data, parentPath);
+			const fn = (parent != null) ? parent[fnKey] : undefined;
+
+			if (typeof fn !== "function") {
+				if (options.debug) {
+					execLog.warn("ezClick target is not a function: " + String(raw), {
+						path: raw,
+						pathArr: pathArr,
+						resolvedType: typeof fn
+					});
+				}
+				return;
+			}
 
 			try {
-				window.__dynamicFunction(system, context);
+				// call as method: this = parent
+				return fn.call(parent, system, context, meta);
 			} catch (e) {
-				const msg = "Error executing code for " + label + " ";
-				if (onErr) {
-					evalLog.info("Meta: ", meta);
-					if (typeof onErr === "function") {
-						try { evalLog.error(msg, onErr(e)); }
-						catch (e2) { evalLog.info("Error executing onErr function", onErr); evalLog.error(msg, e2); }
-					} else if (typeof onErr === "string") {
-						evalLog.error(msg + onErr, e);
-					} else if (base.isObj(onErr)) {
-						evalLog.error(msg, { onErr: onErr, error: e });
-					} else {
-						evalLog.error(msg, e);
-					}
-				} else {
-					evalLog.error(msg, e);
+				const label = (meta && meta.sourceName) ? String(meta.sourceName) : "ezWeb.invoke";
+				const msg = "Error executing handler for " + label;
+
+				if (typeof onErr === "function") {
+					try { execLog.error(msg, onErr(e)); }
+					catch (e2) { execLog.error(msg + " (onErr threw)", e2); }
+					return;
 				}
-			} finally {
-				script.remove();
-				window.__dynamicFunction = undefined;
+
+				if (onErr) {
+					execLog.error(msg, { meta: meta, onErr: onErr, error: e });
+					return;
+				}
+
+				execLog.error(msg, e);
 			}
 		}
 
@@ -1328,7 +1447,7 @@ const start = (function () {
 				String(codeStr || "").split(";").forEach((part, idx) => {
 					const trimmed = part.trim();
 					if (!trimmed) return;
-					fn(trimmed + ";", idx);
+					fn(trimmed, idx);
 				});
 			}
 
@@ -1346,8 +1465,7 @@ const start = (function () {
 					const ctx = _resolveContext(el, ev, bindEventsLog);
 
 					eachStatement(codes, (stmt, idx) => {
-						const scoped = "system.data." + stmt;
-						_executeCodeString(scoped, ctx, {
+						_executeCodeString(stmt, ctx, {
 							sourceName: spec.attr + ":" + (el.id || el.getAttribute("id") || el.getAttribute("name") || "anon") + " #" + idx
 						});
 					});
