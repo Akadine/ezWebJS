@@ -41,7 +41,7 @@ const start = (function () {
 	 * Module entrypoint, attaches API to system bag
 	 * @param {object} the system bag
 	 ******************************************************************/
-	retunn function start(system) {
+	return function start(system) {
 		//import base
 		const base = system.base;
 		
