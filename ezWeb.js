@@ -9,7 +9,7 @@
 	Asset loader:
 		- CSS: load once
 		- JS: load once via script tag; modules register start() into window.__ezWebMods.
-		- Framework module loader uses system.base.assets.loadJs()
+		- Framework module loader uses system.base.assets.loadMod()
 
 	Logging (first-class API):
 		system.log.warn("message")
@@ -699,21 +699,29 @@ const ezWeb = (function () {
 		}
 
 		/********************************************************************
-		 * @private _loadJsOnce
+		 * @private _loadMod
 		 * -loads a js file into the page
 		 * @param {string} the url or path of the resource
 		 * @param {string} the base (optional, to override the default)
 		 ********************************************************************/
-		async function _loadJsScriptOnce(url, baseUrlOverride) {
-			const jsLog = log.scope("loadJsOnce"); 
-			const abs = base.toAbsUrl(url, baseUrlOverride);
+		async function _loadMod(url, baseUrlOverride) {
+			const mLog = log.scope("loadMod"); 
+			
+			const LOADER_URL = new URL(import.meta.url);
+			const BASE_URL   = new URL(".", LOADER_URL);  // folder containing ezWeb.mjs
+
+			function modUrl(rel) {
+				return new URL(rel, BASE_URL).href;
+			}						
+			const abs = modUrl(url);
 			if (!abs) {
 				const err = new Error("JS url was empty/invalid");
-				jsLog.error("The JS url was empty/invalid", err)
+				mLog.error("The JS url was empty/invalid", {error:err,url:url,abs:abs});
 				return false;
 			}
-			const mod = await import(url);
-			jsLog.debug("JS " + url + " Loaded");
+			
+			const mod = await import(abs);
+			mLog.debug("JS " + abs + " Loaded");
 			return ok;
 		}
 
@@ -736,16 +744,16 @@ const ezWeb = (function () {
 		});
 		
 		/********************************************************************
-		 * assets loadJs
+		 * assets loadMod
 		 * -loads a js file into the page
 		 * @param {string} the url or path of the resource
 		 * @param {string} the base (optional, to override the default)
 		 ********************************************************************/
-		base.defineLocked(assets, "loadJs", async function loadJs(urlOrUrls, baseUrlOverride) {
+		base.defineLocked(assets, "loadMod", async function loadMod(urlOrUrls, baseUrlOverride) {
 			const urls = isArray(urlOrUrls) ? urlOrUrls : [urlOrUrls];
 			const results = [];
 			for (let i = 0; i < urls.length; i++) {
-				results.push(await _loadJsScriptOnce(urls[i], baseUrlOverride));
+				results.push(await _loadMod(urls[i], baseUrlOverride));
 			}
 			return isArray(urlOrUrls) ? results : results[0];
 		});
@@ -840,7 +848,7 @@ const ezWeb = (function () {
 
 			let startFn;
 			try {
-				await system.base.assets.loadJs(relUrl, EZWEB_BASE_URL);
+				await system.base.assets.loadMod(relUrl, EZWEB_BASE_URL);
 				startFn = (window.__ezWebMods && window.__ezWebMods[name]) ? window.__ezWebMods[name] : null;
 
 				if (typeof startFn !== "function") {
