@@ -90,7 +90,7 @@ const ezWeb = (function () {
 	/********************************************************************
 	 * Pin ezWeb.js folder once
 	 ********************************************************************/
-	const EZWEB_BASE_URL = (function () { new URL(".",import.meta.url).href; })();
+	const EZWEB_BASE_URL = new URL(".", import.meta.url).href;
 
 	/********************************************************************
 	 * Locked property helper
@@ -1054,4 +1054,4 @@ const ezWeb = (function () {
 
 })();
 
-window.ezWeb = ezWeb;
+export default ezWeb;
