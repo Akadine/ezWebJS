@@ -2794,13 +2794,6 @@ const start = (function () {
 	// Attach defaults to start function (loader reads this)
 	start.defaults = defaults();
 
-	/********************************************************************
-	 * Module export (registry)
-	 ********************************************************************/
-	const w = window;
-	if (!w.__ezWebMods) w.__ezWebMods = Object.create(null);
-	w.__ezWebMods[modName] = start;
-
 })();
 
 export default start;

@@ -958,18 +958,6 @@ const start = (function () {
 	// Attach defaults to start function (loader reads this)
 	start.defaults = defaults();
 
-	/********************************************************************
-	 * Module export (script-tag compatible)
-	 *
-	 * NOTE:
-	 * - Script tags cannot return values directly to the loader.
-	 * - Instead, the IIFE "returns" start(system) by publishing it
-	 *   to a known global registry that the loader reads after load.
-	 ********************************************************************/
-	const w = window;
-	if (!w.__ezWebMods) w.__ezWebMods = Object.create(null);
-	w.__ezWebMods[modName] = start;
-
 })();
 
 export default start;

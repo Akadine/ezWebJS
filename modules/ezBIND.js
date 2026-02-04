@@ -1490,8 +1490,8 @@ const start = (function () {
 
 		function compile(context) {
 			_bindFor(context);      // expand templates first
-			_bindEvents(context);   // then events
 			_bindData(context);     // then data/backticks/select models
+			_bindEvents(context);   // then events
 		}
 
 		defineLocked(system, modName, bind);
