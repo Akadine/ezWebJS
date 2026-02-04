@@ -68,14 +68,27 @@ const start = (function () {
 		 * -snapshot of current settings (including headers)
 		 * @param {object} copy of current settings
 		 ******************************************************************/
-		function _snapshotAjaxSettings() {
-			const s = options.ajaxSettings || Object.create(null);
-			const out = base.mergeDeep(Object.create(null), s);
+		function _setupAjaxSettings(patch) {
+			if (!patch || typeof patch !== "object") return _snapshotAjaxSettings();
 
-			// headers must not be handed out as a live reference
-			out.headers = base.cloneShallow(s.headers);
+			// ensure the settings object exists
+			if (!options.ajaxSettings || typeof options.ajaxSettings !== "object") options.ajaxSettings = Object.create(null);
 
-			return out;
+			// merge patch into settings
+			options.ajaxSettings = base.mergeDeep(options.ajaxSettings, patch);
+
+			// ensure headers bag exists and is plain
+			if (!options.ajaxSettings.headers || typeof options.ajaxSettings.headers !== "object") options.ajaxSettings.headers = Object.create(null);
+			
+			//app base url
+			if (options.ajaxSettings.appBaseUrl == null && options.appBaseUrl != null)
+				options.ajaxSettings.appBaseUrl = options.appBaseUrl;
+
+			//framework base url
+			if (options.ajaxSettings.frameworkBaseUrl == null && options.frameworkBaseUrl != null)
+				options.ajaxSettings.frameworkBaseUrl = options.frameworkBaseUrl;
+
+			return _snapshotAjaxSettings();
 		}
 		
 		/******************************************************************
@@ -95,6 +108,14 @@ const start = (function () {
 
 			// ensure headers bag exists and is plain
 			if (!options.ajaxSettings.headers || typeof options.ajaxSettings.headers !== "object") options.ajaxSettings.headers = Object.create(null);
+			
+			//app base url
+			if (options.ajaxSettings.appBaseUrl == null && options.appBaseUrl != null)
+				options.ajaxSettings.appBaseUrl = options.appBaseUrl;
+
+			//framework base url
+			if (options.ajaxSettings.frameworkBaseUrl == null && options.frameworkBaseUrl != null)
+				options.ajaxSettings.frameworkBaseUrl = options.frameworkBaseUrl;
 
 			return _snapshotAjaxSettings();
 		}
@@ -511,7 +532,8 @@ const start = (function () {
 			}
 
 			// Build final URL + body
-			let finalUrl = urlIn;
+			const baseOverride = (typeof opts.baseUrl === "string") ? opts.baseUrl : (system.options.appBaseUrl || "");
+			let finalUrl = base.toAbsUrl(urlIn, baseOverride);
 			let body = undefined;
 
 			const hasData = (data !== undefined);

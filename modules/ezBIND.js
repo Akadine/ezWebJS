@@ -1,11 +1,11 @@
 /* ezBIND.js
  * ezWeb Framework Module
- * Version: 0.0.5
+ * Version: 0.0.6
  *
  * PURPOSE:
  * - One-way + two-way data binding
  * - Special object binding for <select> dropdown models
- * - Backtick template binding:  attr="``dataKey``"
+ * - Backtick template binding (ATTR + TEXT):  ``path.to.value``
  * - ezFor template expansion
  *
  * Contract:
@@ -45,7 +45,7 @@ const start = (function () {
 		 ******************************************************************/
 		// pathString -> binding record[]
 		const _bindings = Object.create(null);
-		
+
 		// Subtree bindings (object/array binds)
 		const _deepBindings = []; // [{ pathString, apply, el }...]
 
@@ -54,37 +54,19 @@ const start = (function () {
 
 		// dataKey pathString -> for-record[]
 		const _forBindings = Object.create(null);
-		
+
 		// raw object/array -> Map(pathString -> pathArr)
 		const rawPaths = new WeakMap();
-		
+
 		// one rebuild per element per tick
 		const _pendingSelectRebuild = new WeakMap();
-		
+
 		// one ezFor rebuild per record per tick
 		const _pendingForRebuild = new WeakMap();
 
 		/******************************************************************
 		 * Registry helpers
 		 ******************************************************************/
-		 function _isEzForStructuralChange(forPath, changedPath) {
-			if (!forPath || !changedPath) return false;
-
-			// length is always structural (push/pop/splice/etc)
-			if (changedPath === (forPath + ".length")) return true;
-
-			// direct index add/remove/replace is structural: "arr[3]"
-			// deep mutations like "arr[3].name" are NOT structural
-			if (changedPath.indexOf(forPath + "[") !== 0) return false;
-
-			const rest = changedPath.substring(forPath.length); // starts with "["
-			const close = rest.indexOf("]");
-			if (close < 0) return false;
-
-			// after "]" must be end-of-string for a direct slot change
-			return (close === rest.length - 1);
-		}
-		
 		function _scheduleForRebuild(rec) {
 			if (!rec || !rec.anchor) return;
 			if (_pendingForRebuild.has(rec)) return;
@@ -97,7 +79,7 @@ const start = (function () {
 				_renderForRecord(rec);
 			});
 		}
-	
+
 		function _scheduleSelectRebuild(el, getModelFn) {
 			if (!el || el.nodeType !== 1) return;
 			if (_pendingSelectRebuild.has(el)) return;
@@ -121,69 +103,65 @@ const start = (function () {
 				finally { el.__ezUpdating = false; }
 			});
 		}
-		
+
 		function _addBinding(pathString, rec) {
 			if (!rec) return;
 			if (!_bindings[pathString]) _bindings[pathString] = [];
 			_bindings[pathString].push(rec);
 		}
-		
+
 		function _addDeepBinding(pathString, rec) {
 			if (!rec) return;
 			rec.pathString = pathString;
 			_deepBindings.push(rec);
 		}
 
-
 		function _notifyBindings(pathString) {
 			const list = _bindings[pathString];
 			if (!list || list.length === 0) return;
 
-			if (options.debug) log.debug("_notifyBindings", {
-				key: pathString,
-				count: list.length
-			});
+			if (options.debug) log.debug("_notifyBindings", { key: pathString, count: list.length });
 
 			for (let i = 0; i < list.length; i++) {
 				const b = list[i];
-				if (!b || !b.el || b.el.nodeType !== 1) continue;
-				if (typeof b.apply !== "function") continue;
+				if (!b || !b.el) continue;
 
-				try {
-					b.apply();
-				} catch (e) {
-					log.error("ezBind apply failed for " + pathString, e);
-				}
+				// dead element guard (elements only)
+				if (b.el.nodeType === 1 && !b.el.isConnected) continue;
+
+				if (typeof b.apply !== "function") continue;
+				try { b.apply(); }
+				catch (e) { log.error("ezBind apply failed for " + pathString, e); }
 			}
 		}
-		
+
 		function _notifyDeepBindings(change) {
 			if (!change || !change.pathString) return;
-			
+
 			const p = change.pathString;
 			const tgt = change.target; // raw target
 
-		  for (let i = 0; i < _deepBindings.length; i++) {
-			const r = _deepBindings[i];
-			if (!r || typeof r.apply !== "function") continue;
-			
-			// dead element guard
-			if (r.el && r.el.nodeType === 1 && !r.el.isConnected) continue;
+			for (let i = 0; i < _deepBindings.length; i++) {
+				const r = _deepBindings[i];
+				if (!r || typeof r.apply !== "function") continue;
 
-			try {
-				// path-based trigger (normal behavior)
-				if (_isPathPrefix(r.pathString, p)) { r.apply(p); continue; }
+				// dead element guard
+				if (r.el && r.el.nodeType === 1 && !r.el.isConnected) continue;
 
-				// alias-based trigger (select model subtree)
-				if (tgt) {
-					const rootRaw = r.getRootRaw ? r.getRootRaw() : null;
-					if (_modelContainsTarget(rootRaw, tgt)) { r.apply(p); continue; }
+				try {
+					// path-based trigger (normal behavior)
+					if (_isPathPrefix(r.pathString, p)) { r.apply(p); continue; }
+
+					// alias-based trigger (select model subtree)
+					if (tgt) {
+						const rootRaw = r.getRootRaw ? r.getRootRaw() : null;
+						if (_modelContainsTarget(rootRaw, tgt)) { r.apply(p); continue; }
+					}
+				}
+				catch (e) {
+					log.error("deep bind apply failed for " + (r.pathString || "(unknown)"), e);
 				}
 			}
-			catch (e) {
-				log.error("deep bind apply failed for " + (r.pathString || "(unknown)"), e);
-			}
-		  }
 		}
 
 		function _addBtBinding(pathString, rec) {
@@ -197,8 +175,14 @@ const start = (function () {
 
 			for (let i = 0; i < list.length; i++) {
 				const r = list[i];
-				if (!r || !r.el || r.el.nodeType !== 1) continue;
-				_applyBackTicksRecord(r);
+				if (!r || !r.el) continue;
+
+				// If record provides apply(), prefer it (works for TEXT + ATTR)
+				if (typeof r.apply === "function") {
+					try { r.apply(pathString); }
+					catch (e) { log.error("backticks apply failed for " + pathString, e); }
+					continue;
+				}
 			}
 		}
 
@@ -208,17 +192,8 @@ const start = (function () {
 		}
 
 		function _notifyFor(changedPathString) {
-			// We only store ezFor records keyed by their root pathString
-			// Trigger when ANY change happens under that root (like select models).
-			// Debounced per record per tick via _scheduleForRebuild().
-
 			for (const k in _forBindings) {
-				// Only consider bindings whose root is a prefix of the change
-				// ex: k="people", changed="people[0]" -> true
 				if (!_isPathPrefix(k, changedPathString)) continue;
-
-				// structural gating
-				//if (!_isEzForStructuralChange(k, changedPathString)) continue;
 
 				const list = _forBindings[k];
 				if (!list || list.length === 0) continue;
@@ -252,7 +227,7 @@ const start = (function () {
 			// ---- ezFor ----
 			_notifyFor(prefixPathString);
 		}
-		
+
 		function _registerRawPath(raw, pathArr) {
 			if (!base.isObj(raw) && !Array.isArray(raw)) return;
 			const ps = _pathToString(pathArr);
@@ -264,11 +239,6 @@ const start = (function () {
 		/******************************************************************
 		 * Path utilities
 		 ******************************************************************/
-
-		/**
-		 * Parse "a.b[0].c" -> ["a","b",0,"c"]
-		 * Supports bracketed quoted keys: a["weird-key"]
-		 */
 		function _parsePath(pathString) {
 			let s = String(pathString || "").trim();
 			if (!s) return [];
@@ -330,10 +300,6 @@ const start = (function () {
 			return out;
 		}
 
-		/**
-		 * Canonical string form used as map key.
-		 * Always keep this function as the single source of truth.
-		 */
 		function _pathToString(pathArr) {
 			let s = "";
 			for (let i = 0; i < pathArr.length; i++) {
@@ -355,11 +321,6 @@ const start = (function () {
 			return cur;
 		}
 
-		/**
-		 * Set value through a path on a PROXY graph.
-		 * - creates missing objects/arrays along the way
-		 * - writes to the CURRENT container (not incorrectly to root)
-		 */
 		function _setAtPath(root, pathArr, value) {
 			if (!root || !pathArr || pathArr.length === 0) return;
 
@@ -382,13 +343,12 @@ const start = (function () {
 			const last = pathArr[pathArr.length - 1];
 			Reflect.set(cur, last, value);
 		}
-		
+
 		function _isPathPrefix(prefix, full) {
 			if (!prefix || !full) return false;
 			if (full === prefix) return true;
 			if (full.indexOf(prefix) !== 0) return false;
 
-			// must be a real boundary: ".", "["  (so "a.b" doesn't match "a.bb")
 			const ch = full.charAt(prefix.length);
 			return (ch === "." || ch === "[");
 		}
@@ -412,13 +372,6 @@ const start = (function () {
 
 		/******************************************************************
 		 * Deep Proxy (reactive data core)
-		 *
-		 * CRITICAL BEHAVIOR:
-		 * - __onChange is stored on the ROOT PROXY (not on raw targets)
-		 * - All nested mutations must emit using the ROOT hook
-		 *
-		 * To support this, the get-trap MUST return the proxy-owned __onChange
-		 * property via receiver descriptor, not target lookup.
 		 ******************************************************************/
 		function _makeDeepProxy() {
 			if (system.data && system.data.__isEzDeepProxy === true) return;
@@ -429,44 +382,27 @@ const start = (function () {
 				onChange: "__onChange",
 				raw: "__raw"
 			};
-			
-			// keep hook in closure, not on proxy object
-			let onChangeHook = null;
 
-			// Cache: raw object -> Map(pathKey -> proxy)
+			let onChangeHook = null;
 			const proxyCache = new WeakMap();
 
-			function _isInternalKey(k) { return k === INTERNAL.isProxy || k === INTERNAL.onChange || k === INTERNAL.raw	}
-
-			/**
-			 * Root-only emitter:
-			 * - ALWAYS checks the hook on the ROOT PROXY (system.data)
-			 * - NEVER on receiver (nested proxy)
-			 */
-			function _emitChangeRoot(change) {
-				const root = system.data; // root proxy
-				const hook = root && root[INTERNAL.onChange]; // MUST be readable from proxy get-trap
-				if (typeof hook === "function") {
-					try { hook(change); }
-					catch (e) { log.error("data __onChange failed", e); }
-				}
+			function _isInternalKey(k) {
+				return k === INTERNAL.isProxy || k === INTERNAL.onChange || k === INTERNAL.raw;
 			}
-			
+
 			function _emitChange(change) {
 				if (typeof onChangeHook === "function") {
 					try { onChangeHook(change); }
 					catch (e) { log.error("data __onChange failed", e); }
 				}
 			}
-			
+
 			function _emitAllAliases(targetRaw, primaryPathArr, changeFactory) {
 				const map = rawPaths.get(targetRaw);
 				if (!map || map.size === 0) {
 					_emitChange(changeFactory(primaryPathArr));
 					return;
 				}
-
-				// Emit for every known alias path to this same raw object/array
 				map.forEach((aliasPathArr) => {
 					_emitChange(changeFactory(aliasPathArr));
 				});
@@ -474,17 +410,14 @@ const start = (function () {
 
 			function _wrap(value, pathArr) {
 				if (!base.isObj(value) && !Array.isArray(value)) return value;
-
-				// Already our proxy?
 				if (value && value[INTERNAL.isProxy] === true) return value;
-				
-				//register
+
 				_registerRawPath(value, pathArr);
 
 				const pathKey = _pathToString(pathArr);
 
 				let map = proxyCache.get(value);
-				if (!map) {	map = new Map(); proxyCache.set(value, map); }
+				if (!map) { map = new Map(); proxyCache.set(value, map); }
 
 				const cached = map.get(pathKey);
 				if (cached) return cached;
@@ -510,18 +443,17 @@ const start = (function () {
 						const had = Object.prototype.hasOwnProperty.call(target, prop);
 						const oldValue = target[prop];
 
-						// Store raw when a proxy is assigned
-						const newValue = (value && value[INTERNAL.isProxy] === true && value[INTERNAL.raw]) ? value[INTERNAL.raw] : value;
+						const newValue = (value && value[INTERNAL.isProxy] === true && value[INTERNAL.raw])
+							? value[INTERNAL.raw]
+							: value;
 
 						if (had && oldValue === newValue) return true;
 
 						const ok = Reflect.set(target, prop, newValue, receiver);
 						if (!ok) return false;
 
-						const fullPath = pathArr.concat([prop]);
-
-						_emitAllAliases(target, pathArr, function (pathArr) {
-							const aliasFullPath = pathArr.concat([prop]);
+						_emitAllAliases(target, pathArr, function (aliasPathArr) {
+							const aliasFullPath = aliasPathArr.concat([prop]);
 							return {
 								type: had ? "set" : "add",
 								path: aliasFullPath,
@@ -576,7 +508,7 @@ const start = (function () {
 							pathString: _pathToString(fullPath),
 							target: target,
 							prop: prop,
-							value: target[prop],        // ✅ define reports value here
+							value: target[prop],
 							oldValue: oldValue
 						});
 
@@ -585,13 +517,11 @@ const start = (function () {
 				};
 
 				const proxy = new Proxy(value, handler);
-
 				map.set(pathKey, proxy);
 				return proxy;
 			}
 
 			system.data = _wrap(system.data, []);
-
 			Object.defineProperty(system.data, INTERNAL.isProxy, { value: true, enumerable: false });
 
 			if (options.debug) log.debug("system.data deep-proxied");
@@ -610,12 +540,9 @@ const start = (function () {
 
 			system.data.__onChange = function (change) {
 				if (!change || !change.pathString) return;
-				const cLog = log.scope("onChange");
-
-				if (options.debug) cLog.debug("__onChange", change.pathString);
 
 				const p = change.pathString;
-				
+
 				// 1) subtree bindings FIRST (object/array roots)
 				_notifyDeepBindings(change);
 
@@ -623,8 +550,11 @@ const start = (function () {
 				_notifyBindings(p);
 				_notifyBackTicks(p);
 				_notifyFor(p);
-				
-				const isObjReplace = (change.type === "set" || change.type === "add" || change.type === "define") && (change.value && typeof change.value === "object");
+
+				const isObjReplace =
+					(change.type === "set" || change.type === "add" || change.type === "define") &&
+					(change.value && typeof change.value === "object");
+
 				if (isObjReplace) _notifyDescendants(p);
 
 				// 3) parents
@@ -643,7 +573,7 @@ const start = (function () {
 		}
 
 		/******************************************************************
-		 * Backtick binding: attr="``dataKey``"
+		 * Backtick binding core
 		 ******************************************************************/
 		function _hasBackTicks(s) {
 			return String(s || "").indexOf("``") !== -1;
@@ -671,23 +601,16 @@ const start = (function () {
 			});
 		}
 
-		function _applyBackTicksRecord(rec) {
-			const el = rec.el;
-			if (!el || el.nodeType !== 1) return;
-
-			for (let i = 0; i < rec.attrs.length; i++) {
-				const a = rec.attrs[i];
-				const rendered = _renderBackTickTemplate(a.template);
-				el.setAttribute(a.name, rendered);
-			}
-		}
-
-		function _findBackTicks(context) {
+		/******************************************************************
+		 * Backtick binding: ATTRIBUTES
+		 ******************************************************************/
+		function _findBackTicksInAttrs(context) {
 			const out = [];
 			if (!context) return out;
 
 			let root = context;
 			if (root && root.els && root.els[0]) root = root.els[0];
+			if (!root) return out;
 
 			function scanEl(el) {
 				if (!el || el.nodeType !== 1) return;
@@ -716,46 +639,128 @@ const start = (function () {
 
 				if (!foundAny) return;
 
-				el.setAttribute("__ezBackTicks", "true");
 				el.__ezBackTickSpec = {
-					clone: el.cloneNode(true),
 					attrs: specAttrs
 				};
 
 				out.push(el);
 			}
 
+			// root itself
 			scanEl(root);
 
+			// descendants
 			const kids = root.querySelectorAll ? root.querySelectorAll("*") : [];
 			for (let i = 0; i < kids.length; i++) scanEl(kids[i]);
 
 			return out;
 		}
 
-		function _bindBackTicks(el) {
+		function _bindBackTicksAttrs(el) {
 			if (!el || el.nodeType !== 1) return;
 
-			const flag = "__ezBackTicksBound";
+			const flag = "__ezBackTicksAttrsBound";
 			if (el[flag] === true) return;
 			el[flag] = true;
 
 			const spec = el.__ezBackTickSpec;
-			if (!spec || !spec.clone || !spec.attrs) return;
+			if (!spec || !spec.attrs || spec.attrs.length === 0) return;
 
-			const rec = { el: el, clone: spec.clone, attrs: spec.attrs };
+			const rec = {
+				el: el,
+				attrs: spec.attrs,
+				apply: function () {
+					if (!el.isConnected) return;
+					for (let i = 0; i < spec.attrs.length; i++) {
+						const a = spec.attrs[i];
+						const rendered = _renderBackTickTemplate(a.template);
+						el.setAttribute(a.name, rendered);
+					}
+				}
+			};
 
-			_applyBackTicksRecord(rec);
+			// first apply
+			rec.apply();
 
+			// register keys
 			for (let i = 0; i < spec.attrs.length; i++) {
 				const a = spec.attrs[i];
 				for (let k = 0; k < a.keys.length; k++) {
-					const key = a.keys[k];
-					const pathArr = _parsePath(key);
-					const pathString = _pathToString(pathArr);
+					const pathString = _pathToString(_parsePath(a.keys[k]));
 					_addBtBinding(pathString, rec);
 				}
 			}
+		}
+
+		/******************************************************************
+		 * Backtick binding: TEXT NODES (TreeWalker)
+		 ******************************************************************/
+		function _bindTickTextTree(root) {
+			const nt = root ? root.nodeType : 0;
+			if (nt !== 1 && nt !== 9 && nt !== 11) return;
+
+			// TreeWalker needs NodeFilter in some environments; guard hard.
+			if (typeof document === "undefined" || !document.createTreeWalker) return;
+			if (typeof NodeFilter === "undefined") return;
+
+			const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+
+			let n;
+			while ((n = walker.nextNode())) {
+				_bindTickTextNode(n);
+			}
+		}
+
+		function _bindTickTextNode(textNode) {
+			if (!textNode || textNode.nodeType !== 3) return;
+
+			const flag = "__ezBackTicksTextBound";
+			if (textNode[flag] === true) return;
+
+			const template = String(textNode.nodeValue || "");
+			if (!_hasBackTicks(template)) return;
+
+			const keys = _extractBackTickKeys(template);
+			if (!keys || keys.length === 0) return;
+
+			textNode[flag] = true;
+
+			const rec = {
+				el: textNode,
+				template: template,
+				apply: function () {
+					// dead guard
+					if (!textNode.parentNode) return;
+					textNode.nodeValue = _renderBackTickTemplate(template);
+				}
+			};
+
+			// first apply
+			rec.apply();
+
+			// register keys
+			for (let i = 0; i < keys.length; i++) {
+				const pathString = _pathToString(_parsePath(keys[i]));
+				_addBtBinding(pathString, rec);
+			}
+		}
+
+		/******************************************************************
+		 * Backticks: one entrypoint (separate from bindData)
+		 ******************************************************************/
+		function _bindTicks(context) {
+			if (!context) return;
+
+			let root = context;
+			if (root && root.els && root.els[0]) root = root.els[0];
+			if (!root) return;
+
+			// 1) TEXT nodes
+			_bindTickTextTree(root);
+
+			// 2) ATTRIBUTES
+			const btEls = _findBackTicksInAttrs(root);
+			for (let i = 0; i < btEls.length; i++) _bindBackTicksAttrs(btEls[i]);
 		}
 
 		/******************************************************************
@@ -801,7 +806,7 @@ const start = (function () {
 					}
 				}
 
-				// backticks
+				// backticks in attributes (text nodes are handled later by compile)
 				const attrs = el.attributes;
 				if (!attrs) continue;
 
@@ -841,14 +846,12 @@ const start = (function () {
 			for (let i = arr.length - 1; i >= 0; i--) {
 				const item = rec.template.cloneNode(true);
 				item.removeAttribute("ezFor");
-				
 
 				const prefix = rec.dataKey + "[" + i + "]";
-				
-				//set an attribute so handler can check context.el.attr
+
 				item.setAttribute("ezForChild", prefix);
 				item.setAttribute("ezForIndex", i);
-				
+
 				_prefixTemplateKeysInTree(item, prefix);
 
 				rec.anchor.parentNode.insertBefore(item, rec.anchor.nextSibling);
@@ -895,7 +898,6 @@ const start = (function () {
 				};
 
 				_addForBinding(pathString, rec);
-				
 				_renderForRecord(rec);
 			}
 
@@ -970,18 +972,12 @@ const start = (function () {
 
 		/******************************************************************
 		 * Dropdown model support
-		 *
-		 * Model shape:
-		 * {
-		 *   options: [ ["blaster", true], ["-----", false], ... ],
-		 *   selectedValue: "blaster"
-		 * }
 		 ******************************************************************/
 		const isSelectModelLog = log.scope("isEzSelectModel");
 		function _isEzSelectModel(v) {
 			if (!v || typeof v !== "object") return false;
-			if (typeof v.selectedValue === "undefined") return false;			
-			//looks like it. if options is not right, we log it
+			if (typeof v.selectedValue === "undefined") return false;
+
 			if (!Array.isArray(v.options)) {
 				if (options.debug) {
 					isSelectModelLog.warn("ezBind <select>: options is not an array", {
@@ -991,20 +987,20 @@ const start = (function () {
 				}
 				return false;
 			}
-			
-			//me made it through the checks!
+
 			return true;
 		}
-		
+
 		function _modelContainsTarget(modelRaw, targetRaw) {
 			if (!modelRaw || !targetRaw) return false;
 			if (modelRaw === targetRaw) return true;
 			if (modelRaw.options && modelRaw.options === targetRaw) return true;
 
-			// handle nested option tuples
 			const opts = modelRaw.options;
 			if (Array.isArray(opts)) {
-				for (let i = 0; i < opts.length; i++) {	if (opts[i] === targetRaw) return true; }
+				for (let i = 0; i < opts.length; i++) {
+					if (opts[i] === targetRaw) return true;
+				}
 			}
 			return false;
 		}
@@ -1034,7 +1030,6 @@ const start = (function () {
 				sel.appendChild(opt);
 			}
 
-			// NO fallback by design (dev error if invalid)
 			sel.value = selectedValue;
 
 			if (selectedValue !== "" && sel.value !== selectedValue) {
@@ -1049,22 +1044,18 @@ const start = (function () {
 		}
 
 		/******************************************************************
-		 * bindData: ezBind + dropdown model + backticks
+		 * bindData: ezBind + dropdown model (NO backticks here)
 		 ******************************************************************/
 		function _bindData(context) {
 			const bindDataLog = log.scope("bindData");
 
 			const els = _findMacthingEls(bindDataLog, "[ezBind]", context);
 
-			// Backticks are independent of ezBind and can exist anywhere
-			const btEls = _findBackTicks(context);
-			for (let i = 0; i < btEls.length; i++) _bindBackTicks(btEls[i]);
-			
 			function _toRaw(v) {
 				if (!v) return v;
 				if (v.__isEzDeepProxy === true && typeof v.__raw !== "undefined") return v.__raw;
 				return v;
-			}		
+			}
 
 			function bindOne(el) {
 				if (!el || el.nodeType !== 1) return;
@@ -1079,7 +1070,6 @@ const start = (function () {
 				const pathArr = _parsePath(key);
 				const pathString = _pathToString(pathArr);
 
-				// register binding with an apply() that reads live data each time
 				_addBinding(pathString, {
 					el: el,
 					pathArr: pathArr,
@@ -1097,7 +1087,7 @@ const start = (function () {
 
 				const tag = (el.tagName || "").toLowerCase();
 				const type = String(el.type || "").toLowerCase();
-				
+
 				// initial push
 				const initial = _getAtPath(system.data, pathArr);
 				_writeElValue(el, initial);
@@ -1114,32 +1104,24 @@ const start = (function () {
 							return _toRaw(v);
 						},
 						apply: function (changedPath) {
-							// always re-read the current value at bind path
 							const cur = _getAtPath(system.data, pathArr);
 
-							// if this binding is NOT a select model, just re-apply normally
 							if (!_isEzSelectModel(cur)) {
 								_writeElValue(el, cur);
 								return;
 							}
 
-							// select model special behavior
 							const selPath = pathString + ".selectedValue";
 							const optPath = pathString + ".options";
 
-							// selectedValue-only: update selection (fast path)
 							if (changedPath === selPath) {
 								if (el.__ezUpdating === true) return;
 								el.__ezUpdating = true;
-								try {
-									el.value = (cur.selectedValue == null) ? "" : String(cur.selectedValue);
-								} finally {
-									el.__ezUpdating = false;
-								}
+								try { el.value = (cur.selectedValue == null) ? "" : String(cur.selectedValue); }
+								finally { el.__ezUpdating = false; }
 								return;
 							}
 
-							// options (or any subtree change): schedule a rebuild once per tick
 							if (_isPathPrefix(optPath, changedPath) || _isPathPrefix(pathString, changedPath)) {
 								_scheduleSelectRebuild(el, function () {
 									return _getAtPath(system.data, pathArr);
@@ -1155,7 +1137,6 @@ const start = (function () {
 					el.addEventListener("change", function () {
 						if (el.__ezUpdating === true) return;
 
-						// live model (proxy)
 						const model = _getAtPath(system.data, pathArr);
 
 						if (options.debug) log.debug("select writeback", {
@@ -1165,12 +1146,10 @@ const start = (function () {
 						});
 
 						if (_isEzSelectModel(model)) {
-							// write to proxied model -> MUST trigger deep proxy set trap -> __onChange
 							model.selectedValue = el.value;
 							return;
 						}
 
-						// primitive fallback
 						_setAtPath(system.data, pathArr, el.value);
 					});
 
@@ -1204,12 +1183,6 @@ const start = (function () {
 		/******************************************************************
 		 * Event binding (ezClick / ezChange / etc.)
 		 ******************************************************************/
-		
-		/******************************************************************
-		 * bind @private _maybeGetOtherContext
-		 * - Higher modules (ui/uix) may extend bind by defining:
-		 *      system.bind._getOtherContext = function(el, ev){ ...; return {...}; }
-		 ******************************************************************/
 		function _maybeGetOtherContext(el, ev, ctxLog) {
 			const mLog = ctxLog.scope("_maybeGetOtherContext");
 			if (!bind || typeof bind._getOtherContext !== "function") return null;
@@ -1222,61 +1195,41 @@ const start = (function () {
 				return null;
 			}
 		}
-		
-		/******************************************************************
-		 * bind @private _resolveContext
-		 ******************************************************************/
+
 		function _resolveContext(el, ev, ctxLog) {
 			const other = _maybeGetOtherContext(el, ev, ctxLog);
 
-			// build base context
 			const ctx = {
 				el: el,
-				sender: el,                      // optional alias
+				sender: el,
 				event: ev || null,
 				type: ev ? ev.type : null,
 				id: el ? (el.id || el.getAttribute("name") || null) : null,
 				name: el ? (el.getAttribute("name") || null) : null,
 				target: ev ? (ev.target || null) : null,
-				
-				// dataset snapshot
+
 				data: (el && el.dataset) ? el.dataset : null,
 
-				// key info
 				key: ev && typeof ev.key !== "undefined" ? ev.key : null,
-				code: ev && typeof ev.code !== "undefined" ? ev.code : null,
+				code: ev && typeof ev.code !== "undefined" ? ev.code : null
 			};
 
-			// merge any extra context fields at top-level (preferred)
 			if (other) {
 				for (const k in other) {
 					if (!Object.prototype.hasOwnProperty.call(other, k)) continue;
-					// don't allow override of core keys unless you WANT to
 					if (k === "el" || k === "sender" || k === "event" || k === "target") continue;
 					ctx[k] = other[k];
 				}
 			}
 
-			// optionally still expose raw bundle
-			// ctx.other = other;
-
 			return ctx;
 		}
-		
-		/******************************************************************
-		 * bind @private _parsePathLoose
-		 * - Like _parsePath, but ALSO supports bracket identifiers:
-		 *   "path[to].my.fun" -> ["path","to","my","fun"]
-		 * - Keeps support for: a["weird-key"], a[0]
-		 ******************************************************************/
+
 		function _parsePathLoose(pathString) {
 			let s = String(pathString || "").trim();
 			if (!s) return [];
 
-			// allow legacy "system.data." prefix (strip it)
 			if (s.indexOf("system.data.") === 0) s = s.substring("system.data.".length);
-
-			// allow accidental "()" or "();" from older patterns
 			s = s.replace(/\(\)\s*;?\s*$/, "");
 
 			const out = [];
@@ -1294,7 +1247,6 @@ const start = (function () {
 					i++;
 					while (i < s.length && /\s/.test(s[i])) i++;
 
-					// quoted key: ["x"] or ['x']
 					if (s[i] === '"' || s[i] === "'") {
 						const q = s[i++];
 						let buf = "";
@@ -1314,12 +1266,10 @@ const start = (function () {
 						continue;
 					}
 
-					// number: [123]
 					let num = "";
 					let j = i;
 					while (j < s.length && /[0-9]/.test(s[j])) { num += s[j]; j++; }
 
-					// bracket identifier: [to] / [someKey]
 					if (num === "" && isIdentStart(s[i])) {
 						let name = "";
 						while (i < s.length && isIdentChar(s[i])) name += s[i++];
@@ -1329,7 +1279,6 @@ const start = (function () {
 						continue;
 					}
 
-					// finish number branch
 					i = j;
 					while (i < s.length && /\s/.test(s[i])) i++;
 					if (s[i] === "]") i++;
@@ -1345,25 +1294,18 @@ const start = (function () {
 					continue;
 				}
 
-				// skip unknown chars
 				i++;
 			}
 
 			return out;
 		}
 
-		/******************************************************************
-		 * bind @private _getAtPathSafe
-		 * - Same idea as _getAtPath, but blocks prototype-escape keys.
-		 ******************************************************************/
 		function _getAtPathSafe(root, pathArr) {
 			let cur = root;
 			for (let i = 0; i < pathArr.length; i++) {
 				if (cur == null) return undefined;
 
 				const k = pathArr[i];
-
-				// prevent prototype pollution / escape
 				if (k === "__proto__" || k === "prototype" || k === "constructor") return undefined;
 
 				cur = cur[k];
@@ -1371,13 +1313,6 @@ const start = (function () {
 			return cur;
 		}
 
-		/******************************************************************
-		 * bind @private _executeCodeString
-		 * - NO eval / NO script injection
-		 * - Resolves a function off system.data by path string and invokes it.
-		 * - Invokes with: (system, context, meta)
-		 * - Sets "this" to the parent object (so methods work naturally).
-		 ******************************************************************/
 		function _executeCodeString(codeString, context, meta, onErr) {
 			const execLog = log.scope("executeCodeString");
 
@@ -1387,7 +1322,6 @@ const start = (function () {
 			const pathArr = _parsePathLoose(raw);
 			if (!pathArr || pathArr.length === 0) return;
 
-			// resolve parent + function
 			const fnKey = pathArr[pathArr.length - 1];
 			const parentPath = pathArr.slice(0, -1);
 
@@ -1406,7 +1340,6 @@ const start = (function () {
 			}
 
 			try {
-				// call as method: this = parent
 				return fn.call(parent, system, context, meta);
 			} catch (e) {
 				const label = (meta && meta.sourceName) ? String(meta.sourceName) : "ezWeb.invoke";
@@ -1489,9 +1422,10 @@ const start = (function () {
 		const bind = Object.create(null);
 
 		function compile(context) {
-			_bindFor(context);      // expand templates first
-			_bindData(context);     // then data/backticks/select models
-			_bindEvents(context);   // then events
+			_bindFor(context);       // expand templates first
+			_bindTicks(context);     // then backticks (TEXT + ATTR)
+			_bindData(context);      // then ezBind + select models
+			_bindEvents(context);    // then events
 		}
 
 		defineLocked(system, modName, bind);
@@ -1502,13 +1436,14 @@ const start = (function () {
 		_installDataChangeHook();
 
 		// First compile pass
-		compile(system.el);
+		compile(system.appEl);
 
 		log.info(modName + " module ready");
 		return bind;
-	}
+	};
 
 	start.defaults = defaults();
 
 })();
+
 export default start;

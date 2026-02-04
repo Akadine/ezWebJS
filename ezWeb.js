@@ -1,5 +1,5 @@
 
-/*  ezWeb.js  (BASE LOADER) version 0.1.0
+/*  ezWeb.js  (BASE LOADER) version 0.1.1
 	Old-school IIFE. This file evaluates to a callable ezWeb function object.
 
 	Framework modules (dom/net/bind/ui/uix):
@@ -46,6 +46,11 @@
 */
 const ezWeb = (function () {
 	"use strict";
+	
+	/********************************************************************
+	 * Pin ezWeb.js folder once
+	 ********************************************************************/
+	const EZWEB_BASE_URL = new URL(".", import.meta.url).href;
 
     /********************************************************************
 	 * Framework module ladder + files (hardcoded)
@@ -71,6 +76,12 @@ const ezWeb = (function () {
 
 		// reserved for UIX apps later (asset base)
 		appRoot: "",
+		
+		//local Root
+		appBaseUrl: new URL(".", document.baseURI).href,
+		
+		//ezWeb root
+		frameworkBaseUrl: new URL(".", import.meta.url).href,
 
 		// log options (optional polish hooks)
 		appPrefix: "",            // optional, developer-facing (e.g. "myApp")
@@ -85,12 +96,7 @@ const ezWeb = (function () {
 	 * Private loader state
 	 ********************************************************************/
 	const startedMounts = new WeakSet();           // prevent double-start per mount
-	const moduleStartCache = Object.create(null);  // moduleName -> Promise<startFn>
-
-	/********************************************************************
-	 * Pin ezWeb.js folder once
-	 ********************************************************************/
-	const EZWEB_BASE_URL = new URL(".", import.meta.url).href;
+	const moduleStartCache = Object.create(null);  // moduleName -> Promise<startFn>	
 
 	/********************************************************************
 	 * Locked property helper
@@ -610,7 +616,7 @@ const ezWeb = (function () {
 		defineLocked(base, "toAbsUrl", function toAbsUrl(url, baseOverride) {
 			if (!url) return "";
 			if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:")) return url;
-			const root = baseOverride || EZWEB_BASE_URL || "";
+			const root = baseOverride || system.options.frameworkBaseUrl || "";
 			return base.joinUrl(root, url);
 		});
 		
@@ -704,7 +710,7 @@ const ezWeb = (function () {
 			const mLog = log.scope("loadMod");
 
 			// Use your existing base.toAbsUrl() — but make sure baseOverride is correct
-			const abs = base.toAbsUrl(url, baseUrlOverride || EZWEB_BASE_URL);
+			const abs = base.toAbsUrl(url, baseUrlOverride || system.options.frameworkBaseUrl);
 			if (!abs) {
 				const err = new Error("JS url was empty/invalid");
 				mLog.error("The JS url was empty/invalid", { error: err, url: url, abs: abs });
@@ -848,7 +854,7 @@ const ezWeb = (function () {
 
 			let startFn;
 			try {
-				startFn = await system.base.assets.loadMod(relUrl, EZWEB_BASE_URL);
+				startFn = await system.base.assets.loadMod(relUrl, system.options.frameworkBaseUrl);
 				if (typeof startFn !== "function") system.log.fatal("Module did not export start(system): " + name);
 
 				if (typeof startFn !== "function") {
