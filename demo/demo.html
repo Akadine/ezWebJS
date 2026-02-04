@@ -14,7 +14,7 @@
 		<script type="module">
 			"use strict";
 			
-			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.2/ezWeb.js";
+			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.3/ezWeb.js";
 			
 			/***************************************************************
 			 * Static switch:
@@ -78,7 +78,7 @@
 				data.inc = 0;
 				
 				app.append("input", {type: "text", ezBind: "inc"});
-				app.append("button", {type:"button", ezClick:"incFn(system);", text:"Increment"});
+				app.append("button", {type:"button", ezClick:"incFn;", text:"Increment"});
 				
 				data.incFn = function(system) {
 					const data = system.data;

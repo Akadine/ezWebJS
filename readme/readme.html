@@ -1,5 +1,5 @@
 
-<!--ezWeb readme.html version: 0.0.4 -->
+<!--ezWeb readme.html version: 0.0.5 -->
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -91,7 +91,27 @@
 				border-color: rgba(122,162,255,.24);
 				text-decoration:none;
 			}
-			.navItem small{
+			.navItem{
+				display:block;
+				padding: 8px 8px;
+				border-radius: 10px;
+				border: 1px solid transparent;
+				color: var(--accent); /* default link color */
+			}
+
+			.navItem:hover{
+				background: rgba(122,162,255,.08);
+				border-color: rgba(122,162,255,.24);
+				text-decoration:none;
+			}
+
+			.navHead{
+				display:block;
+				color: var(--accent);
+				font-weight: 700;
+			}
+
+			.navDesc{
 				display:block;
 				color: var(--muted);
 				font-size: 12px;
@@ -158,7 +178,7 @@
 		<script type="module">
 			"use strict";
 			
-			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.2/ezWeb.js";
+			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.3/ezWeb.js";
 
 			/******************************************************************
 			 * readme.html
@@ -177,15 +197,15 @@
 			// Data model drives ezFor + code snippet (as TEXT, not executed)
 			const data = {
 				nav: [
-				{ id: "intro",  title: "Introduction",  desc: "What ezWeb is (and isn’t)" },
-				{ id: "quick",  title: "Quick Start",   desc: "Loader contract + Hello World" },
-				{ id: "ladder", title: "Totem Pole",    desc: "Module ladder + start() arguments" },
-				{ id: "phil",    title: "Philosophy",   desc: "Why ezWeb exists" },
-				{ id: "secure",  title: "Security",     desc: "No magic. No global leaks." },
+				{ id: "intro",   title: "Introduction",    desc: "What ezWeb is (and isn’t)" },
+				{ id: "quick",   title: "Quick Start",     desc: "Loader contract + Hello World" },
+				{ id: "ladder",  title: "Totem Pole",      desc: "Module ladder + start() arguments" },
+				{ id: "phil",    title: "Philosophy",      desc: "Why ezWeb exists" },
+				{ id: "secure",  title: "Security",        desc: "No magic. No global leaks." },
 				{ id: "contract",title: "Module Contract", desc: "start(system), system bag, extension model" },
-				{ id: "interop", title: "Interop", desc: "base primitives + jQuery-style DOM/AJAX" },
-				{ id: "binding", title: "Binding", desc: "ezBind, ezEvents, templates, auto-compilation" },
-				{ id: "logger", title: "Logging", desc: "Scoped logging, levels, and fatal errors" }
+				{ id: "interop", title: "Interop",         desc: "base primitives + jQuery-style DOM/AJAX" },
+				{ id: "binding", title: "Binding",         desc: "ezBind, ezEvents, templates, auto-compilation" },
+				{ id: "logger",  title: "Logging",         desc: "Scoped logging, levels, and fatal errors" }
 			],
 
 				// Bound into <pre> as textContent => safe + won’t execute
@@ -341,56 +361,63 @@ ezWeb("app", "net", data, options, function(system){
 // - ez{Event}   : event wiring (ezClick, ezChange, etc.)
 // - Backticks   : template expressions inside attributes/text
 // - ezFor       : template repetition
-// - Dropdowns   : object-based binding (items + SelectedIndex)
+// - Dropdowns   : object-based binding (options + selectedValue)
 //
-// Key rule:
-// You do NOT manually compile.
-// Compilation happens automatically when nodes are added.
+// Key rules:
+// 1) ez* event attributes are PATHS only (no parentheses / no args)
+//    - ezClick="handlers.increment"
+//    - NOT: ezClick="handlers.increment(system)"
+//
+// 2) Handlers are resolved from system.data and invoked as:
+//    fn.call(parentObj, system, context, meta)
+//
+// 3) You do NOT manually compile.
+//    Compilation happens automatically when nodes are added via dom helpers.
 
 // Example:
 ezWeb("app", "bind", data, options, function(system){
 \tconst $ = system.dom;
-\tconst data = system.data; // reactive/proxied model (authoritative, data sent in is copied over)
+\tconst data = system.data; // reactive/proxied model
 
 \tdata.count = 0;
 \tdata.color = "red";
 
-\t//you can mutate the options list reactively. see ezFor below.
+\t// Dropdown model (reactive)
 \tdata.dropdown = {
-\t\toptions: [ 
-\t\t\t["One",true],
-\t\t\t["Two",true],
-\t\t\t["-----",false], //false is inactive, a seperator or a category header
-\t\t\t["Three",true]
+\t\toptions: [
+\t\t\t["One", true],
+\t\t\t["Two", true],
+\t\t\t["-----", false], // false = disabled (separator / header)
+\t\t\t["Three", true]
 \t\t],
-\t\tSelectedValue: "One"
+\t\tselectedValue: "One"
+\t};
+
+\t// Handlers live on system.data (or nested namespaces)
+\tdata.handlers = {};
+
+\tdata.handlers.increment = function(system, ctx){
+\t\tsystem.data.count++;
+\t};
+
+\tdata.handlers.anotherFN = function(system, ctx){
+\t\t// just showing multiple handlers
 \t};
 
 \t// Create elements with ez* attributes
-\tconst app = (system.appEl);
+\tconst app = system.appEl;
 \tapp.append({
 \t\ttag: "div",
 \t\tchildren: [
 \t\t\t{ tag:"div", ezBind:"count", style:"color:\`\`color\`\`;" },
 \t\t\t{
 \t\t\t\ttag:"button",
-\t\t\t\tezClick:"increment(system); anotherFN(system);",
-\t\t\ttext:"Increment"
+\t\t\t\tezClick:"handlers.increment; handlers.anotherFN",
+\t\t\t\ttext:"Increment"
 \t\t\t},
-\t\t\t{
-\t\t\t\ttag:"select",
-\t\t\t\tezBind:"dropdown"
-\t\t\t}
+\t\t\t{ tag:"select", ezBind:"dropdown" }
 \t\t]
 \t});
-
-\t// Handlers
-\tdata.increment = function(system){
-\t\tsystem.data.count++;
-\t};
-\tdata.anotherFN = function(system){
-\t\t//just showing adding two handlers
-\t};
 
 \t// ezFor
 \tdata.people = [
@@ -409,20 +436,17 @@ ezWeb("app", "bind", data, options, function(system){
 \t\t]
 \t});
 
-\t//test reactively mutating ezFor
+\t// test reactively mutating ezFor
 \tdata.updateFor = function(system) {
-\t\tconst data = system.data; // proxied array
-\t\tdata.people[0] = { name:"Vader", role:"Sith Lord" };
-\t\tdata.people[1].name = "Janeway";
-\t\t//data.people.splice(1,1);
-\t\tdata.people.push({ name:"Nelix", role:"Ambassador" });
-\t\t//data.people.pop();
-	
-\t}
+\t\tconst d = system.data;
+\t\td.people[0] = { name:"Vader", role:"Sith Lord" };
+\t\td.people[1].name = "Janeway";
+\t\td.people.push({ name:"Nelix", role:"Ambassador" });
+\t};
+
 \tdata.updateFor(system);
 });
 //
-// No explicit compile call.
 // bind installs a hook into dom so new nodes are compiled automatically.`,
 				codeLogger:
 `// Logger usage
@@ -517,8 +541,8 @@ ezWeb("app", "dom", data, options, function(system){
 											class: "navItem",
 											style: "display:none;",
 											children: [
-												{ tag:"div", ezBind:"title" },
-												{ tag:"small", ezBind:"desc" }
+												{ tag:"div", class:"navHead", ezBind:"title" },
+												{ tag:"div", class:"navDesc", ezBind:"desc" }
 											]
 										},
 
@@ -984,7 +1008,7 @@ ezWeb("app", "dom", data, options, function(system){
 													tag:"p",
 													class:"muted",
 													text:
-														"Handler resolution: ez events resolve from data (the reactive model). Use namespaces if you want: ezClick=\"handlers.increment\" will call data.handlers.increment."
+														"Handler resolution: ez events resolve from system.data (the reactive model). Use namespaces if you want: ezClick=\"handlers.increment\" will call system.data.handlers.increment(system, ctx, meta). Event attributes are paths only (no parentheses / no args)."
 												},
 												{
 													tag:"p",
@@ -999,16 +1023,16 @@ ezWeb("app", "dom", data, options, function(system){
 													children: [
 														{ tag:"li", text:"ezBind=\"key\" — binds element properties from reactive data (use this for text)" },
 														{ tag:"li", text:"Backticks: attribute templates only (style/class/src/href/etc). Example: style=\"color:``color``;\"" },
-														{ tag:"li", text:"ezClick / ezChange / ezKeyDown / ezKeyUp / ezFocus — event wiring (handler resolves from data)" },
+														{ tag:"li", text:"ezClick / ezChange / ezKeyDown / ezKeyUp / ezFocus — event wiring (value is handler path(s) resolved from data)" },
 														{ tag:"li", text:"ezFor=\"array\" — template repetition" },
-														{ tag:"li", text:"Dropdown binding: object shape with options + SelectedValue (framework renders + tracks selection)" }
+														{ tag:"li", text:"Dropdown binding: object shape with options + selectedValue (framework renders + tracks selection)" }
 													]
 												},
 
 												{
 													tag:"p",
 													text:
-														"Dropdowns use object binding. A bound object with an options array and SelectedValue drives the control, and updates propagate automatically."
+														"Dropdowns use object binding. A bound object with an options array and selectedValue drives the control, and updates propagate automatically."
 												},
 
 												{
@@ -1030,7 +1054,7 @@ ezWeb("app", "dom", data, options, function(system){
 \t\t["---", false], // seperator, category header
 \t\t["Two", true]
 \t],
-\tSelectedValue: "One"
+\tselectedValue: "One"
 };`
 														}
 													]
@@ -1040,7 +1064,7 @@ ezWeb("app", "dom", data, options, function(system){
 													tag:"p",
 													class:"muted",
 													text:
-														"Event attributes accept multiple handler calls separated by semicolons. Each handler is resolved from data and invoked in order."
+														"Event attributes accept multiple handler paths separated by semicolons. Each path is resolved from system.data and invoked in order."
 												},
 												
 												{
@@ -1051,16 +1075,17 @@ ezWeb("app", "dom", data, options, function(system){
 															text:
 `{
 	tag:"button",
-	ezClick:"increment(system); logChange(system)",
+	ezClick:"increment; logChange",
 	text:"Increment"
 }
 
-data.increment = function(system){
+data.increment = function(system, ctx){
 	system.data.count++;
 };
 
-data.logChange = function(system){
-	const log = system.log.scope("Counter");
+data.logChange = function(system, ctx){
+	const { el, event } = ctx;
+	const log = system.log.scope("Counter", { el, event });
 	log.info("count changed");
 };`
 														}
