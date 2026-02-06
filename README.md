@@ -144,6 +144,9 @@ No dependency. No globals. High security: injected scripts are replaced by an in
 No virtual DOM.  
 No manual compile.  
 Declarative ez* attributes.
+Dropdown full model view binding.
+Nested ezFor loops.
+Multiple handler binding for events.
 
 ---
 
