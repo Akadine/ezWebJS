@@ -44,13 +44,14 @@ What ezWeb is **not**:
 
 - Not React
 - Not Angular
-- Not a “framework replacement”
+- Not jQuery
 
 What ezWeb **is**:
 
 - A loader + explicit module lifecycle
 - A system bag you can inspect
 - A codebase you can understand by reading it
+- A complete framework replacement
 
 ---
 
