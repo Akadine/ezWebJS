@@ -71,21 +71,21 @@ High-level security posture:
 
 ```html
 <div id="app"></div>
-<script src="scripts/ezWeb.js"></script>
-<script>
-"use strict";
-
-const options = {
-	appPrefix: "MyApp",
-	verbosity: 3
-};
-
-const data = {};
-
-ezWeb("app", "dom", data, options, function(system){
-	const $ = system.dom;
-	$(system.appEl).append({ tag:"div", text:"Hello World from ezWeb" });
-});
+<script type="module">
+	"use strict";
+	import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.7/ezWeb.js";
+	
+	const options = {
+		appPrefix: "MyApp",
+		verbosity: 3
+	};
+	
+	const data = {};
+	
+	ezWeb("app", "dom", data, options, function(system){
+		const $ = system.dom;
+		$(system.appEl).append({ tag:"div", text:"Hello World from ezWeb" });
+	});
 </script>
 ```
 
