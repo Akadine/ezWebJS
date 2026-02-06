@@ -3,7 +3,7 @@
 # ezWeb  
 ### A loader + composable primitives  
 **Transparent contracts. Security-first by default.**
-For a more detailed readme, download the project and double click readme.html
+For a more detailed readme, download and double click readme.html
 ---
 
 ## Table of Contents
