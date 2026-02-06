@@ -99,7 +99,7 @@ ezWeb uses a **hardcoded dependency ladder**.
 dom → net → bind → ui → uix
 ```
 
-Pick the highest module you want; ezWeb loads everything below it.
+Pick the highest module you want; ezWeb loads everything below it. (Note: ui and uix are not released yet. dom + net would be minimum viable, adding bind was minimum wow)
 
 ---
 
