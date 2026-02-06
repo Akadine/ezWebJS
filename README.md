@@ -149,6 +149,6 @@ Declarative ez* attributes.
 ## Logging
 
 Scoped logging with levels:
-NONE, INFO, DEBUG, ERROR, FATAL
+NONE, INFO, WARN, DEBUG, ERROR, FATAL
 
-FATAL always throws.
+ERROR and FATAL always print, FATAL always throws.
