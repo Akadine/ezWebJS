@@ -42,16 +42,16 @@ ezWeb prioritizes:
 
 What ezWeb is **not**:
 
-- Not React
-- Not Angular
-- Not jQuery
+- Not ReactJS (We love React's html strings!)
+- Not AngularJS (We love Angular's binding and init call back lifecycle for security!)
+- Not jQuery (We love jQueries easy of use, and wanted you to be able drop your jQuery code in and have it just work!
 
 What ezWeb **is**:
 
 - A loader + explicit module lifecycle
 - A system bag you can inspect
 - A codebase you can understand by reading it
-- A complete framework replacement
+- A complete framework replacement taking the best ideas of React, Angular, and  jQuery and rebuilding them in a modern security first way.
 
 ---
 
@@ -135,7 +135,7 @@ Higher modules may extend lower modules — never the other way around.
 
 DOM and NET (AJAX) follow the jQuery silhouette with modern internals. (i.e. $.ajax() just works)
 
-No dependency. No globals.
+No dependency. No globals. High security: injected scripts are replaced by an inert comment unless you specifically set allowScripts to true.
 
 ---
 
