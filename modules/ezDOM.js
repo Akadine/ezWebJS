@@ -26,7 +26,10 @@ const start = (function () {
 			// Query scoping:
 			// - true  => dom("...") queries inside system.appEl
 			// - false => dom("...") queries document-wide
-			scopeToMount: true
+			scopeToMount: true,
+			
+			//dynamic script injection
+			allowScripts: false
 		};
 	}
 
@@ -1064,8 +1067,8 @@ const start = (function () {
 		 * @param {object} (optional) spec
 		 * @returns {element|string|_Wrapped|array|null}
 		 ******************************************************************/
+		const rcaLog = log.scope("resolveContentArgs");
 		function _resolveContentArgs(content, spec) {
-			const rcaLog = log.scope("resolveContentArgs");
 
 			if (content == null) {
 				if (options.debug) rcaLog.debug("resolveContentArgs(): content was null/undefined");
@@ -1214,8 +1217,8 @@ const start = (function () {
 		 * @param {object} (optional) opts
 		 * @returns {object|null} validator API
 		 */
-		function _validate(containerEl, rules, opts) {
-			const vLog = log.scope("validate");
+		const vLog = log.scope("validate");
+		function _validate(containerEl, rules, opts) {			
 			if (!containerEl || containerEl.nodeType !== 1) return null;
 
 			// auditable defaults
@@ -1552,7 +1555,7 @@ const start = (function () {
 
 				return {
 					ok: ok,
-					errors: base.cloneDeep ? base.cloneDeep(errors) : errors, // if you have cloneDeep later
+					errors: base.cloneDeep ? base.cloneDeep(errors) : errors,
 					values: values
 				};
 			}
@@ -1623,15 +1626,36 @@ const start = (function () {
 		 * @param {_node} containerEl Template
 		 * @returns {HTMLElement} a real live element
 		 */
-		function _createDOMFromNode(_node) {
-			// preserve text nodes as children (important for <button>text</button>)
-			if (_node.nodeType === Node.TEXT_NODE) {
-				return document.createTextNode(_node.textContent);
-			}
+		function _createDOMFromNode(_node, allowScripts) {
+			if (_node.nodeType === Node.TEXT_NODE) { return document.createTextNode(_node.textContent); }
 
 			if (_node.nodeType !== Node.ELEMENT_NODE) return null;
 
 			const tag = _node.tagName.toLowerCase();
+
+			// SCRIPT: re-create “live” script if allowed
+			if (tag === "script") {
+				if (allowScripts !== true) { 
+					if (options.debug) {
+						log.warn("Script tag stripped (allowScripts=false)", _node);
+					}
+					return document.createComment("ezWeb: script stripped"); }
+
+				const s = document.createElement("script");
+
+				// copy attributes exactly (src, type="module", nomodule, async, defer, integrity, crossorigin, nonce, etc.)
+				for (let i = 0; i < _node.attributes.length; i++) {
+					const a = _node.attributes[i];
+					s.setAttribute(a.nodeName, a.nodeValue);
+				}
+
+				// inline script body
+				// (textContent works for classic + module scripts)
+				s.textContent = _node.textContent || "";
+
+				return s;
+			}
+
 			const el = document.createElement(tag);
 
 			// copy attributes
@@ -1642,7 +1666,7 @@ const start = (function () {
 
 			// recurse children (includes text nodes)
 			for (let i = 0; i < _node.childNodes.length; i++) {
-				const child = _createDOMFromNode(_node.childNodes[i]);
+				const child = _createDOMFromNode(_node.childNodes[i], allowScripts);
 				if (child) el.appendChild(child);
 			}
 
@@ -1762,65 +1786,43 @@ const start = (function () {
 		 * @returns {element|array|null} single root element or array of nodes
 		 ******************************************************************/
 		function create(a1, a2) {
-			// the logger for this function:
 			const createLog = log.scope("create");
-
 			let html = "";
 
-			// overload: create("div", { ... }) => use createString
 			if (typeof a1 === "string" && a2 && typeof a2 === "object" && !_looksLikeHtml(a1)) {
 				html = createString(a1, a2);
-
-				if (!html || !String(html).trim()) {
-					createLog.error("create(): createString() returned empty HTML for tag+spec", { tag: a1, spec: a2 });
-					return null;
-				}
+				if (!String(html || "").trim()) return null;
 			}
-			// string => parse directly (HTML or selector-ish string, but create() treats as HTML input)
 			else if (typeof a1 === "string") {
 				html = a1;
 			}
-			// object => generate html via createString
 			else if (a1 && typeof a1 === "object") {
 				html = createString(a1);
-
-				// if createString returns empty, treat as invalid spec (and bail)
-				if (!html || !String(html).trim()) {
-					createLog.error("create(): createString() returned empty HTML for spec", a1);
-					return null;
-				}
+				if (!String(html || "").trim()) return null;
 			}
-			// invalid => fatal
 			else {
-				const err = new Error("create(): unsupported input type");
-				createLog.fatal("create(): unsupported input type", err);
+				createLog.fatal("create(): unsupported input type");
 			}
 
 			const trimmed = String(html || "").trim();
 			if (!trimmed) return null;
 
-			// parse with a temp div (old-library behavior)
-			const tempDiv = document.createElement("div");
-			tempDiv.innerHTML = trimmed;
+			// inert parse
+			const tpl = document.createElement("template");
+			tpl.innerHTML = trimmed;
 
-			// Convert childNodes -> “real” DOM nodes
+			const allowScripts = (options.dom && options.dom.allowScripts === true);
+			
 			const made = [];
-			for (let i = 0; i < tempDiv.childNodes.length; i++) {
-				const n = tempDiv.childNodes[i];
-				const domNode = _createDOMFromNode(n);
-				if (domNode && domNode.nodeType === 1) {
-					made.push(domNode);
-				}
+			const nodes = tpl.content.childNodes;
+
+			for (let i = 0; i < nodes.length; i++) {
+				const domNode = _createDOMFromNode(nodes[i], allowScripts);
+				if (domNode) made.push(domNode);
 			}
 
-			// No element roots
-			if (made.length <= 0) return null;
-
-			// Single root element => return the element
-			if (made.length === 1) return made[0];
-
-			// Multi-root => return array of elements
-			return made;
+			if (made.length === 0) return null;
+			return (made.length === 1) ? made[0] : made;
 		}
 		
 		/******************************************************************
