@@ -3,7 +3,7 @@
 # ezWeb  
 ### A loader + composable primitives  
 **Transparent contracts. Security-first by default.**
-For a more detailed readme, download the project and double click readme.html
+For a more detailed readme, download and double click readme.html
 ---
 
 ## Table of Contents
@@ -42,15 +42,16 @@ ezWeb prioritizes:
 
 What ezWeb is **not**:
 
-- Not React
-- Not Angular
-- Not a “framework replacement”
+- Not ReactJS (We love React's html strings!)
+- Not AngularJS (We love Angular's binding and init call back lifecycle for security!)
+- Not jQuery (We love jQueries easy of use, and wanted you to be able drop your jQuery code in and have it just work!
 
 What ezWeb **is**:
 
 - A loader + explicit module lifecycle
 - A system bag you can inspect
 - A codebase you can understand by reading it
+- A complete framework replacement taking the best ideas of React, Angular, and  jQuery and rebuilding them in a modern security first way.
 
 ---
 
@@ -71,21 +72,21 @@ High-level security posture:
 
 ```html
 <div id="app"></div>
-<script src="scripts/ezWeb.js"></script>
-<script>
-"use strict";
-
-const options = {
-	appPrefix: "MyApp",
-	verbosity: 3
-};
-
-const data = {};
-
-ezWeb("app", "dom", data, options, function(system){
-	const $ = system.dom;
-	$(system.appEl).append({ tag:"div", text:"Hello World from ezWeb" });
-});
+<script type="module">
+	"use strict";
+	import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.7/ezWeb.js";
+	
+	const options = {
+		appPrefix: "MyApp",
+		verbosity: 3
+	};
+	
+	const data = {};
+	
+	ezWeb("app", "dom", data, options, function(system){
+		const $ = system.dom;
+		$(system.appEl).append({ tag:"div", text:"Hello World from ezWeb" });
+	});
 </script>
 ```
 
@@ -99,7 +100,7 @@ ezWeb uses a **hardcoded dependency ladder**.
 dom → net → bind → ui → uix
 ```
 
-Pick the highest module you want; ezWeb loads everything below it.
+Pick the highest module you want; ezWeb loads everything below it. (Note: ui and uix are not released yet. dom + net would be minimum viable, adding bind was minimum wow)
 
 ---
 
@@ -134,7 +135,7 @@ Higher modules may extend lower modules — never the other way around.
 
 DOM and NET (AJAX) follow the jQuery silhouette with modern internals. (i.e. $.ajax() just works)
 
-No dependency. No globals.
+No dependency. No globals. High security: injected scripts are replaced by an inert comment unless you specifically set allowScripts to true.
 
 ---
 
@@ -142,13 +143,16 @@ No dependency. No globals.
 
 No virtual DOM.  
 No manual compile.  
-Declarative ez* attributes.
+Declarative ez* attributes.  
+Dropdown full model view binding.  
+Nested ezFor loops.  
+Multiple handler binding for events.  
 
 ---
 
 ## Logging
 
 Scoped logging with levels:
-NONE, INFO, DEBUG, ERROR, FATAL
+NONE, INFO, WARN, DEBUG, ERROR, FATAL
 
-FATAL always throws.
+ERROR and FATAL always print, FATAL always throws.
