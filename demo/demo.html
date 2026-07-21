@@ -14,7 +14,7 @@
 		<script type="module">
 			"use strict";
 			
-			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.8/ezWeb.js";
+			import ezWeb from "https://cdn.jsdelivr.net/gh/Akadine/ezWebJS@v0.1.6/ezWeb.js";
 			
 			/***************************************************************
 			 * Static switch:
@@ -122,89 +122,121 @@
 				// 2) active bound dropdown object
 				data.techDrop = { options: [], selectedValue: "" };
 
-				// 3) radio handler
-				data.setFranchise = function(system, which) {
-					const data = system.data;					
-					const opts = (which === "st") ? data.stTechOptions : data.swTechOptions;
-					const tech = (which === "st") ? "Trek" : "Wars";
-					data.color = (which === "st") ? "blue" : "red";
-					data.techDrop.options = opts;
-					data.techDrop.selectedValue = data._firstEnabledValue(data.techDrop.options);					
-					data.tech = "Star" + tech + "Tech Selected";
-					if (which === "st")	{
-						//test add one option	
-						if (data.techDrop.options[5] === undefined) {
-							data.techDrop.options.push(["----------", false]);
-							data.techDrop.options.push(["teleporter", true]);
-						}
-						
-					}
-					if (which === "sw")	{
-						//test change one option
-						data.techDrop.options[4] = ["deathstar", true];
+				// Franchise + technology-specific ezFor models.
+				data.peopleByTech = {
+					sw: {
+						blaster: [
+							{ name: "Han Solo", role: "Smuggler" },
+							{ name: "Leia Organa", role: "General" }
+						],
+						lightsaber: [
+							{ name: "Luke Skywalker", role: "Jedi" },
+							{ name: "Darth Vader", role: "Sith Lord" }
+						],
+						deathstar: [
+							{ name: "Grand Moff Tarkin", role: "Commander" },
+							{ name: "Orson Krennic", role: "Director" }
+						]
+					},
+					st: {
+						phaser: [
+							{ name: "James T. Kirk", role: "Captain" },
+							{ name: "William Riker", role: "Commander" }
+						],
+						batleth: [
+							{ name: "Worf", role: "Klingon Warrior" },
+							{ name: "Martok", role: "General" }
+						],
+						shuttlepod: [
+							{ name: "Trip Tucker", role: "Chief Engineer" },
+							{ name: "Tom Paris", role: "Pilot" }
+						],
+						teleporter: [
+							{ name: "Montgomery Scott", role: "Chief Engineer" },
+							{ name: "Miles O'Brien", role: "Transporter Chief" }
+						]
 					}
 				};
-				
-				// init (swap the internals, use the handler)
-				data.setFranchise;
 
-				// 4) radio UI
-				const radioWrap = app.append("div", {});
+				data.franchise = "sw";
+				data.people = [];
 
-				// Star Wars
-				radioWrap.append("label", { style: "margin-right:12px;" })
-					.append("span", { text: " Star Wars" })
-					.append("input", {
-						type: "radio",
-						name: "franchise",
-						checked: true,
-						ezChange: "setFranchise;"
-					});
+				data.setTechPeople = function(system, context) {
+					const data = system.data;
+					const selected = context && context.target
+						? context.target.value
+						: data.techDrop.selectedValue;
 
-				// Star Trek
-				radioWrap.append("label", {})
-					.append("span", { text: " Star Trek" })
-					.append("input", {
-						type: "radio",
-						name: "franchise",
-						ezChange: "setFranchise;"
-					});
+					data.techDrop.selectedValue = selected;
+					data.people = (data.peopleByTech[data.franchise] || {})[selected] || [];
+				};
 
-				// 5) dropdown bound to the OBJECT (options + selectedValue)
-				app.append("select", { ezBind: "techDrop" });
+				// Radios change the franchise and repopulate the technology dropdown.
+				data.setFranchise = function(system, context) {
+					const data = system.data;
+					const which = context && context.target
+						? context.target.value
+						: data.franchise;
+					const opts = (which === "st") ? data.stTechOptions : data.swTechOptions;
+					const tech = (which === "st") ? "Trek" : "Wars";
 
-				// 6) display bound directly to selectedValue (primitive bind)
-				app.append("div", { text: "Selected: " });				
+					data.franchise = which;
+					data.color = (which === "st") ? "blue" : "red";
+					data.techDrop.options = opts;
+					data.techDrop.selectedValue = data._firstEnabledValue(opts);
+					data.tech = "Star " + tech + " Tech Selected";
+
+					if (which === "st" && data.techDrop.options[5] === undefined) {
+						data.techDrop.options.push(["----------", false]);
+						data.techDrop.options.push(["teleporter", true]);
+					}
+
+					if (which === "sw") {
+						data.techDrop.options[4] = ["deathstar", true];
+					}
+
+					// The radio changes the dropdown model, then the dropdown's
+					// selected value chooses the one shared ezFor collection.
+					data.setTechPeople(system);
+				};
+
+				// Initialize the active franchise and dropdown before rendering.
+				data.setFranchise(system);
+
+				// Franchise radios repopulate the dropdown.
+				app.append("label", {
+					children: [
+						{ tag: "input", type: "radio", name: "franchise", value: "sw", checked: true, ezChange: "setFranchise" },
+						{ tag: "span", text: "Star Wars" }
+					]
+				});
+				app.append("label", {
+					children: [
+						{ tag: "input", type: "radio", name: "franchise", value: "st", ezChange: "setFranchise" },
+						{ tag: "span", text: "Star Trek" }
+					]
+				});
+
+				// The dropdown selection changes the data rendered by the one ezFor.
+				app.append("select", {
+					ezBind: "techDrop",
+					ezChange: "setTechPeople"
+				});
+
+				app.append("div", { text: "Selected: " });
 				app.append("div", { ezBind: "techDrop.selectedValue" });
-				
-				//test ezFor
-				data.people = [
-					{ name: "Luke", role: "Jedi" },
-					{ name: "Picard", role: "Captain" }
-				];
 
+				// Exactly one ezFor; its collection changes with dropdown selection.
 				app.append("div", {
 					ezFor: "people",
 					style: "padding:6px;border:1px solid #444;margin:4px;display:none;",
 					children: [
 						{ tag: "div", text: "Name:" },
-						{ tag: "div", ezBind: "name" },   // becomes people[0].name, people[1].name
+						{ tag: "div", ezBind: "name" },
 						{ tag: "div", text: "Role:" },
 						{ tag: "div", ezBind: "role" }
 					]
 				});
-
-				//test mutating ezFor working 100%! (I added one at a time and tested, comment out splice and pop to see other results.)
-				data.updateFor = function(system) {
-					const data = system.data; // proxied array
-					data.people[0] = { name:"Vader", role:"Sith Lord" }; // should log people[0]
-					data.people[1].name = "Janeway";
-					data.people.splice(1,1);
-					data.people.push({ name:"Nelix", role:"Ambassador" });
-					data.people.pop();
-					
-				}
-				data.updateFor(system);
 				
 				
 			}).then(function (pid) {
